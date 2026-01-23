@@ -1,0 +1,3 @@
+[submodule "libs/cppcon"]
+	path = libs/cppcon
+	url = https://github.com/ERVELYUS/cppcon.git

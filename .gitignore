@@ -1,0 +1,43 @@
+# prerequisites
+*.d
+
+# compiled object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# precompiled headers
+*.gch
+*.pch
+
+# compiled dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# compiled static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# executables
+*.exe
+*.out
+overflow
+
+# ides and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# cmake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+build/
+.cache/
