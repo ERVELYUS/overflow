@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cppcon/Packet.h>
 
 #include <vector>
