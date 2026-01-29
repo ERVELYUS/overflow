@@ -30,7 +30,6 @@ class Server {
 
   void process_command(User& user, const Packet& packet);
 
-  void create_user(TcpSocket user_socket);
   void disconnect_user(int socket_fd);
 
   Channel* create_channel(std::string_view name);
