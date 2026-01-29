@@ -21,13 +21,33 @@ void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
   int fd = user_socket.get_fd();
   m_polls.add(user_socket, POLLIN);
-  m_users.emplace(fd, User(std::move(user_socket), "User"));
+  m_users.emplace(fd, User(std::move(user_socket), "user"));
 }
 
-void Server::handle_client_message(int socket_fd) {}
+void Server::handle_client_message(int user_fd) {
+  auto& user = m_users.at(user_fd);
+
+  Packet user_message{};
+  if (!user.recv(user_message)) {
+    disconnect_user(user_fd);
+  }
+  else {
+    process_command(user, user_message);
+  }
+}
 
 void Server::process_command(User& user, const Packet& packet) {}
 
-void Server::disconnect_user(int socket_fd) {}
+void Server::disconnect_user(int user_fd) {
+  User* user_to_delete = &m_users.at(user_fd);
+  for (auto& channel : m_channels) {
+    channel.second.remove_user(user_to_delete);
+  }
+  m_polls.remove(user_to_delete->get_socket());
 
-Channel* Server::create_channel(std::string_view name) {}
+  m_users.erase(user_fd);
+}
+
+Channel* Server::create_channel(std::string_view name) {
+  return &m_channels[std::string(name)];
+}

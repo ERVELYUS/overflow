@@ -26,7 +26,7 @@ class Server {
   void run();
 
   void handle_new_connection();
-  void handle_client_message(int socket_fd);
+  void handle_client_message(int user_fd);
 
   void process_command(User& user, const Packet& packet);
 

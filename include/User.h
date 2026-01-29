@@ -13,6 +13,7 @@ class User {
   User(TcpSocket socket, std::string_view name);
 
   std::string_view get_name();
+  TcpSocket& get_socket();
 
   void send(const Packet& packet);
   bool recv(Packet& packet);

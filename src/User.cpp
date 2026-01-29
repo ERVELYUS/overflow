@@ -5,6 +5,8 @@ User::User(TcpSocket socket, std::string_view name)
 
 std::string_view User::get_name() { return m_name; }
 
+TcpSocket& User::get_socket() { return m_socket; }
+
 void User::send(const Packet& packet) { m_socket.send(packet); }
 
 bool User::recv(Packet& packet) {
