@@ -9,7 +9,6 @@
 #include <unordered_map>
 
 #include "Channel.h"
-#include "Protocol.h"
 #include "User.h"
 
 class Server {

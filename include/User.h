@@ -12,6 +12,8 @@ class User {
  public:
   User(TcpSocket socket, std::string_view name);
 
+  void set_name(std::string_view new_name);
+
   std::string_view get_name();
   TcpSocket& get_socket();
 

@@ -1,5 +1,7 @@
 #include "Server.h"
 
+#include "Protocol.h"
+
 Server::Server(std::string port) {
   auto tcp_endpoints =
       AddrInfoResolver::resolve("127.0.0.1", port, AF_INET, SOCK_STREAM);
@@ -36,7 +38,33 @@ void Server::handle_client_message(int user_fd) {
   }
 }
 
-void Server::process_command(User& user, const Packet& packet) {}
+void Server::process_command(User& user, const Packet& packet) {
+  Packet p = packet;
+
+  std::uint8_t command_protocol;
+  p >> command_protocol;
+
+  CommandID command = static_cast<CommandID>(command_protocol);
+
+  switch (command) {
+    case CommandID::Nickname: {
+      std::string new_name;
+      p >> new_name;
+      user.set_name(new_name);
+      break;
+    }
+    case CommandID::Join: {
+      std::string channel_name;
+      p >> channel_name;
+
+      // TODO maybe not allow user to create random channels?
+      Channel* channel = create_channel(channel_name);
+
+      channel->add_user(&user);
+      break;
+    }
+  }
+}
 
 void Server::disconnect_user(int user_fd) {
   User* user_to_delete = &m_users.at(user_fd);
@@ -49,5 +77,6 @@ void Server::disconnect_user(int user_fd) {
 }
 
 Channel* Server::create_channel(std::string_view name) {
+  // Because it's a map, even if channel doesn't exist - it will create one
   return &m_channels[std::string(name)];
 }

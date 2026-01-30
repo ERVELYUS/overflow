@@ -3,6 +3,8 @@
 User::User(TcpSocket socket, std::string_view name)
     : m_socket(std::move(socket)), m_name(name) {}
 
+void User::set_name(std::string_view new_name) { m_name = new_name; }
+
 std::string_view User::get_name() { return m_name; }
 
 TcpSocket& User::get_socket() { return m_socket; }
