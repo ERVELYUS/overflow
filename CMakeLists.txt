@@ -7,8 +7,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(libs/cppcon)
 
 set(SOURCE_FILES
-  src/main.cpp
+  src/start_server.cpp
   src/User.cpp
+  src/Server.cpp
+  src/Channel.cpp
 )
 
 add_executable(overflow ${SOURCE_FILES})
