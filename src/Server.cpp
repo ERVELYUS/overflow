@@ -1,6 +1,29 @@
 #include "Server.h"
 
+#include <iostream>
+
 #include "Protocol.h"
+
+void Server::run() {
+  m_running = true;
+
+  while (m_running) {
+    m_polls.wait();
+
+    if (m_polls.is_ready(m_listener)) {
+      handle_new_connection();
+    }
+
+    // TODO change SocketSelector to return list of sockets that changed
+    auto it = m_users.begin();
+    while (it != m_users.end()) {
+      auto current = it++;
+      if (m_polls.is_ready(current->second.get_socket())) {
+        handle_client_message(current->first);
+      }
+    }
+  }
+}
 
 Server::Server(std::string port) {
   auto tcp_endpoints =
@@ -61,6 +84,41 @@ void Server::process_command(User& user, const Packet& packet) {
       Channel* channel = create_channel(channel_name);
 
       channel->add_user(&user);
+      break;
+    }
+    case CommandID::Msg: {
+      std::string target_channel;
+      std::string message_text;
+
+      p >> target_channel >> message_text;
+
+      auto it = m_channels.find(target_channel);
+      if (it != m_channels.end()) {
+        Channel& channel = it->second;
+
+        Packet broadcast_packet;
+        broadcast_packet << std::uint8_t(CommandID::Msg)
+                         << std::string(user.get_name()) << message_text;
+
+        channel.broadcast(broadcast_packet, &user);
+      }
+      break;
+    }
+    case CommandID::Leave: {
+      std::string target_channel;
+      p >> target_channel;
+
+      auto it = m_channels.find(target_channel);
+      if (it != m_channels.end()) {
+        it->second.remove_user(&user);
+      }
+      break;
+    }
+    case CommandID::Error:
+    case CommandID::None:
+    default: {
+      std::cerr << "Received invalid or unexpected command ID from user "
+                << user.get_name() << '\n';
       break;
     }
   }
