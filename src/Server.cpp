@@ -9,6 +9,7 @@ void Server::run() {
 
   while (m_running) {
     m_polls.wait();
+    std::cout << "Wait returned, checking sockets\n";
 
     if (m_polls.is_ready(m_listener)) {
       handle_new_connection();
@@ -70,13 +71,19 @@ void Server::process_command(User& user, const Packet& packet) {
   CommandID command = static_cast<CommandID>(command_protocol);
 
   switch (command) {
-    case CommandID::Nickname: {
+    case CommandID::NICKNAME: {
       std::string new_name;
       p >> new_name;
+
+      // Log before the change
+      std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
+                << " from '" << user.get_name() << "' to '" << new_name << "'"
+                << std::endl;
+
       user.set_name(new_name);
       break;
     }
-    case CommandID::Join: {
+    case CommandID::JOIN: {
       std::string channel_name;
       p >> channel_name;
 
@@ -86,7 +93,7 @@ void Server::process_command(User& user, const Packet& packet) {
       channel->add_user(&user);
       break;
     }
-    case CommandID::Msg: {
+    case CommandID::MSG: {
       std::string target_channel;
       std::string message_text;
 
@@ -97,14 +104,14 @@ void Server::process_command(User& user, const Packet& packet) {
         Channel& channel = it->second;
 
         Packet broadcast_packet;
-        broadcast_packet << std::uint8_t(CommandID::Msg)
+        broadcast_packet << std::uint8_t(CommandID::MSG)
                          << std::string(user.get_name()) << message_text;
 
         channel.broadcast(broadcast_packet, &user);
       }
       break;
     }
-    case CommandID::Leave: {
+    case CommandID::LEAVE: {
       std::string target_channel;
       p >> target_channel;
 
@@ -114,8 +121,8 @@ void Server::process_command(User& user, const Packet& packet) {
       }
       break;
     }
-    case CommandID::Error:
-    case CommandID::None:
+    case CommandID::ERROR:
+    case CommandID::NONE:
     default: {
       std::cerr << "Received invalid or unexpected command ID from user "
                 << user.get_name() << '\n';

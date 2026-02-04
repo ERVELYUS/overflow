@@ -3,10 +3,10 @@
 #include <cstdint>
 
 enum class CommandID : std::uint8_t {
-  None = 0,
-  Join = 1,
-  Msg = 2,
-  Leave = 3,
-  Nickname = 4,
-  Error = 5,
+  NONE = 0,
+  JOIN = 1,
+  MSG = 2,
+  LEAVE = 3,
+  NICKNAME = 4,
+  ERROR = 5,
 };

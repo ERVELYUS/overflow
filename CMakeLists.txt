@@ -18,4 +18,3 @@ add_executable(overflow ${SOURCE_FILES})
 target_link_libraries(overflow PRIVATE cppcon)
 target_include_directories(overflow PRIVATE include)
 target_include_directories(overflow PRIVATE libs/cppcon/include)
-
