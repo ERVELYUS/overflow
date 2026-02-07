@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <ostream>
 #include <stdexcept>
 
 #include "Protocol.h"
@@ -56,6 +57,7 @@ void Client::handle_server_message(Packet& packet) {
     packet >> sender >> content;
 
     std::cout << "\r[" << sender << "]: " << content << "\n" << std::flush;
+    std::cout << "> " << std::flush;
   }
 }
 
@@ -68,19 +70,34 @@ void Client::run() {
 
     Packet p;
 
-    if (line.find("/nick ")) {
+    if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
+      // TODO: Add name filters
       m_nickname = new_name;
       std::cout << "[System] Name changed to " << new_name << ".\n"
                 << std::flush;
     }
-    else if (line.find("/join ")) {
+    else if (line.find("/join ") == 0) {
       std::string channel_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
       m_current_channel = channel_name;
       std::cout << "[System] Connected to channel #" << channel_name << ".\n"
                 << std::flush;
     }
+    else {
+      if (m_current_channel.empty()) {
+        std::cout << "[System] Join a channel first via /join server_name\n"
+                  << std::flush;
+        std::cout << "> " << std::flush;
+        continue;
+      }
+      p << static_cast<std::uint8_t>(CommandID::MSG) << m_current_channel
+        << line;
+    }
+
+    m_socket.send(p);
+
+    std::cout << "> " << std::flush;
   }
 }
