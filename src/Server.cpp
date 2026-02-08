@@ -7,15 +7,15 @@
 void Server::run() {
   m_running = true;
 
+  std::cout << "Server created and running\n";
   while (m_running) {
     m_polls.wait();
-    std::cout << "Wait returned, checking sockets\n";
 
     if (m_polls.is_ready(m_listener)) {
       handle_new_connection();
     }
 
-    // TODO change SocketSelector to return list of sockets that changed
+    // TODO: change SocketSelector to return list of sockets that changed
     auto it = m_users.begin();
     while (it != m_users.end()) {
       auto current = it++;
@@ -26,9 +26,9 @@ void Server::run() {
   }
 }
 
-Server::Server(std::string port) {
-  auto tcp_endpoints =
-      AddrInfoResolver::resolve("127.0.0.1", port, AF_INET, SOCK_STREAM);
+// TODO: Add and option to just pass local/global as a parameter
+Server::Server(const std::string& ip, const std::string& port) {
+  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
   if (tcp_endpoints.empty()) {
     throw std::runtime_error("Could not resolve TCP");
   }
@@ -48,6 +48,7 @@ void Server::handle_new_connection() {
   int fd = user_socket.get_fd();
   m_polls.add(user_socket, POLLIN);
   m_users.emplace(fd, User(std::move(user_socket), "user"));
+  std::cout << "[LOG] New user connected\n" << std::flush;
 }
 
 void Server::handle_client_message(int user_fd) {
@@ -75,7 +76,6 @@ void Server::process_command(User& user, const Packet& packet) {
       std::string new_name;
       p >> new_name;
 
-      // Log before the change
       std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
                 << " from '" << user.get_name() << "' to '" << new_name << "'"
                 << std::endl;
@@ -87,9 +87,11 @@ void Server::process_command(User& user, const Packet& packet) {
       std::string channel_name;
       p >> channel_name;
 
-      // TODO maybe not allow user to create random channels?
+      // TODO: maybe not allow user to create random channels?
       Channel* channel = create_channel(channel_name);
 
+      std::cout << "[LOG] User " << user.get_name() << " joined #"
+                << channel_name << " channel\n";
       channel->add_user(&user);
       break;
     }
@@ -104,7 +106,7 @@ void Server::process_command(User& user, const Packet& packet) {
         Channel& channel = it->second;
 
         Packet broadcast_packet;
-        broadcast_packet << std::uint8_t(CommandID::MSG)
+        broadcast_packet << static_cast<std::uint8_t>(CommandID::MSG)
                          << std::string(user.get_name()) << message_text;
 
         channel.broadcast(broadcast_packet, &user);
@@ -119,6 +121,21 @@ void Server::process_command(User& user, const Packet& packet) {
       if (it != m_channels.end()) {
         it->second.remove_user(&user);
       }
+      std::cout << "[LOG] User " << user.get_name() << " left #"
+                << target_channel << " channel\n";
+      break;
+    }
+    case CommandID::LIST: {
+      Packet channels_list{};
+      channels_list << static_cast<std::uint8_t>(CommandID::LIST)
+                    << static_cast<std::uint32_t>(m_channels.size());
+      for (auto channel : m_channels) {
+        channels_list << channel.first;
+      }
+      std::cout << "[LOG] User " << user.get_name()
+                << " requested a list of channels\n"
+                << std::flush;
+      user.send(channels_list);
       break;
     }
     case CommandID::ERROR:

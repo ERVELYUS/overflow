@@ -21,12 +21,12 @@ Client::~Client() {
 }
 
 void Client::connect(const std::string& ip, const std::string& port) {
-  auto endpoints = AddrInfoResolver::resolve(ip, port);
-  if (endpoints.empty()) {
-    throw std::runtime_error("Could not resolve server address!");
+  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
+  if (tcp_endpoints.empty()) {
+    throw std::runtime_error("Could not resolve server address");
   }
 
-  m_socket.connect(endpoints[0]);
+  m_socket.connect(tcp_endpoints[0]);
   m_running = true;
 
   m_recieve_thread = std::thread([this]() {
@@ -57,6 +57,20 @@ void Client::handle_server_message(Packet& packet) {
     packet >> sender >> content;
 
     std::cout << "\r[" << sender << "]: " << content << "\n" << std::flush;
+
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::LIST) {
+    std::cout << "[System] List of all available channels:\n";
+
+    std::uint32_t channels_count{};
+    packet >> channels_count;
+
+    std::string channel_name;
+    for (std::uint32_t i = 0; i < channels_count; ++i) {
+      packet >> channel_name;
+      std::cout << '#' << channel_name << '\n';
+    }
     std::cout << "> " << std::flush;
   }
 }
@@ -70,6 +84,7 @@ void Client::run() {
 
     Packet p;
 
+    // TODO: add /leave
     if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
@@ -84,6 +99,9 @@ void Client::run() {
       m_current_channel = channel_name;
       std::cout << "[System] Connected to channel #" << channel_name << ".\n"
                 << std::flush;
+    }
+    else if (line.find("/list") == 0) {
+      p << static_cast<std::uint8_t>(CommandID::LIST);
     }
     else {
       if (m_current_channel.empty()) {

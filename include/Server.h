@@ -12,6 +12,9 @@
 #include "User.h"
 
 class Server {
+  // TODO: users are defined as int (file descriptor) and User object,
+  // meanwhile channels are defined as string (channel name) and Channel object
+  // which maybe creates a layer of inconsistency?
   std::unordered_map<int, User> m_users{};
   std::unordered_map<std::string, Channel> m_channels{};
 
@@ -20,7 +23,7 @@ class Server {
   bool m_running{};
 
  public:
-  Server(std::string port);
+  Server(const std::string& ip, const std::string& port);
 
   void run();
 

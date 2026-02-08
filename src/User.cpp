@@ -13,7 +13,7 @@ void User::send(const Packet& packet) { m_socket.send(packet); }
 
 bool User::recv(Packet& packet) {
   if (!m_socket.recv(packet)) {
-    // Need to handle user disconnection
+    // TODO: Need to handle user disconnection
     return false;
   }
   return true;
