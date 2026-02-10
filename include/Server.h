@@ -15,7 +15,7 @@ class Server {
   // TODO: users are defined as int (file descriptor) and User object,
   // meanwhile channels are defined as string (channel name) and Channel object
   // which maybe creates a layer of inconsistency?
-  std::unordered_map<int, User> m_users{};
+  std::unordered_map<socket_t, User> m_users{};
   std::unordered_map<std::string, Channel> m_channels{};
 
   TcpListener m_listener{};
@@ -28,11 +28,11 @@ class Server {
   void run();
 
   void handle_new_connection();
-  void handle_client_message(int user_fd);
+  void handle_client_message(socket_t user_fd);
 
   void process_command(User& user, const Packet& packet);
 
-  void disconnect_user(int socket_fd);
+  void disconnect_user(socket_t socket_fd);
 
   Channel* create_channel(std::string_view name);
 };

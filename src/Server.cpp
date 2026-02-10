@@ -45,13 +45,13 @@ Server::Server(const std::string& ip, const std::string& port) {
 
 void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
-  int fd = user_socket.get_fd();
+  socket_t fd = user_socket.get_fd();
   m_polls.add(user_socket, POLLIN);
   m_users.emplace(fd, User(std::move(user_socket), "user"));
   std::cout << "[LOG] New user connected\n" << std::flush;
 }
 
-void Server::handle_client_message(int user_fd) {
+void Server::handle_client_message(socket_t user_fd) {
   auto& user = m_users.at(user_fd);
 
   Packet user_message{};
@@ -148,7 +148,7 @@ void Server::process_command(User& user, const Packet& packet) {
   }
 }
 
-void Server::disconnect_user(int user_fd) {
+void Server::disconnect_user(socket_t user_fd) {
   User* user_to_delete = &m_users.at(user_fd);
   for (auto& channel : m_channels) {
     channel.second.remove_user(user_to_delete);

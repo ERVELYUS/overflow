@@ -4,6 +4,8 @@ project(overflow VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include_directories(overflow PRIVATE include)
+include_directories(overflow PRIVATE libs/cppcon/include)
 add_subdirectory(libs/cppcon)
 
 # SERVER SIDE
@@ -15,9 +17,6 @@ set(SERVER_SOURCES
 )
 
 add_executable(overflow_server ${SERVER_SOURCES})
-
-target_include_directories(overflow_server PRIVATE include)
-target_include_directories(overflow_server PRIVATE libs/cppcon/include)
 target_link_libraries(overflow_server PRIVATE cppcon)
 
 # CLIENT SIDE
@@ -27,9 +26,6 @@ set(CLIENT_SOURCES
 )
 
 add_executable(overflow_client ${CLIENT_SOURCES})
-
-target_include_directories(overflow_client PRIVATE include)
-target_include_directories(overflow_client PRIVATE libs/cppcon/include)
 target_link_libraries(overflow_client PRIVATE cppcon)
 
 if(WIN32)
