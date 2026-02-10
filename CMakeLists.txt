@@ -31,3 +31,8 @@ add_executable(overflow_client ${CLIENT_SOURCES})
 target_include_directories(overflow_client PRIVATE include)
 target_include_directories(overflow_client PRIVATE libs/cppcon/include)
 target_link_libraries(overflow_client PRIVATE cppcon)
+
+if(WIN32)
+  target_link_libraries(overflow_server PRIVATE Ws2_32)
+  target_link_libraries(overflow_client PRIVATE Ws2_32)
+endif()
