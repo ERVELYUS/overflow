@@ -9,6 +9,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 include_directories(overflow PRIVATE include)
 include_directories(overflow PRIVATE libs/cppcon/include)
 add_subdirectory(libs/cppcon)
+add_subdirectory(libs/guiHelper)
 
 # SERVER SIDE
 set(SERVER_SOURCES
@@ -30,7 +31,20 @@ set(CLIENT_SOURCES
 add_executable(overflow_client ${CLIENT_SOURCES})
 target_link_libraries(overflow_client PRIVATE cppcon)
 
+
+# GUI CLIENT SIDE
+set(GUI_CLIENT_SOURCES
+  src/start_gui_client.cpp
+  src/Client.cpp
+)
+
+add_executable(overflow_gui_client ${GUI_CLIENT_SOURCES})
+target_include_directories(overflow_gui_client PRIVATE libs/guiHelper/include)
+target_link_libraries(overflow_gui_client PRIVATE cppcon guiHelper)
+
+
 if(WIN32)
   target_link_libraries(overflow_server PRIVATE Ws2_32)
   target_link_libraries(overflow_client PRIVATE Ws2_32)
+  target_link_libraries(overflow_gui_client PRIVATE Ws2_32)
 endif()
