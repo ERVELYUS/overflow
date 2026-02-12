@@ -1,9 +1,10 @@
 #include <guiHelper.h>
 
+#include <GLFW/glfw3.h>
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include <GLFW/glfw3.h>
 
 GuiHelper::Window::Window(std::string_view title, int width, int height) {
   CreateWindow(title, width, height);
