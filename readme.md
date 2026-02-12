@@ -38,7 +38,10 @@ The foundation is solid. The next steps focus on **Protocol Robustness, Logic, a
 - [ ] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
 
 ### 2. Features
-- [ ] **UI:** Create a UI version via imgui
+- [ ] **UI:** Create a UI version via imgui.
+	- [X] imgui library support via **glfw** and **opengl**.
+	- [ ] API interface for working with the engine.
+	- [ ] implementation of a window for the client part.
 
 ## Build Instructions
 
