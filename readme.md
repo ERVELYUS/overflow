@@ -29,7 +29,7 @@ Instead of relying on heavy external frameworks like Boost.Asio, `cppcon` implem
 The foundation is solid. The next steps focus on **Protocol Robustness, Logic, and UI**.
 
 ### 1. Server Logic 
-- [ ] **User Disconnection:** Handle user disconnecting from the server
+- [X] **User Disconnection:** Handle user disconnecting from the server
 - [ ] **User Leavng Channel:** Handle user typing `/leave`
 - [ ] **Nickname filters:** Add filters to `/nick <name>` to restrict usernames
 - [ ] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
