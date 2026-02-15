@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-// TODO: duplicate users with the same username?
 void Channel::add_user(User* user) { m_users.push_back(user); }
 
 void Channel::remove_user(User* user) {

@@ -1,5 +1,6 @@
 #include "Server.h"
 
+#include <algorithm>
 #include <iostream>
 
 #include "Protocol.h"
@@ -26,7 +27,39 @@ void Server::run() {
   }
 }
 
-// TODO: Add and option to just pass local/global as a parameter
+bool Server::is_valid_nickname(std::string_view nickname) {
+  // Length check
+  if (nickname.length() < 3 || nickname.length() > 20) {
+    return false;
+  }
+
+  // Valid chars check
+  auto is_valid_char = [](char c) {
+    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+  };
+  if (!std::all_of(nickname.begin(), nickname.end(), is_valid_char)) {
+    return false;
+  }
+
+  // Reserved names (might be expanded)
+  std::string check_name{};
+  std::for_each(nickname.begin(), nickname.end(),
+                [](char c) { c = tolower(c); });
+  if (check_name == "system" || check_name == "admin" || check_name == "root" ||
+      check_name == "server") {
+    return false;
+  }
+
+  // Uniqueness check
+  for (const auto& [fd, user] : m_users) {
+    if (user.get_name() == nickname) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 Server::Server(const std::string& ip, const std::string& port) {
   auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
   if (tcp_endpoints.empty()) {
@@ -76,11 +109,24 @@ void Server::process_command(User& user, const Packet& packet) {
       std::string new_name;
       p >> new_name;
 
-      std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
-                << " from '" << user.get_name() << "' to '" << new_name << "'"
-                << std::endl;
-
-      user.set_name(new_name);
+      Packet nickname_change_msg{};
+      if (is_valid_nickname(new_name)) {
+        nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME)
+                            << true << new_name;
+        std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
+                  << " from '" << user.get_name() << "' to '" << new_name
+                  << "'\n"
+                  << std::flush;
+        user.set_name(new_name);
+      }
+      else {
+        nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME)
+                            << false;
+        std::cout << "[LOG] User " << user.get_socket().get_fd()
+                  << " tried to change nickname unsuccessfully\n"
+                  << std::flush;
+      }
+      user.send(nickname_change_msg);
       break;
     }
     case CommandID::JOIN: {

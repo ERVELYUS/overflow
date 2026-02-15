@@ -61,7 +61,7 @@ void Client::handle_server_message(Packet& packet) {
     std::cout << "> " << std::flush;
   }
   else if (id == CommandID::LIST) {
-    std::cout << "[System] List of all available channels:\n";
+    std::cout << "[System] List of all available channels:\n" << std::flush;
 
     std::uint32_t channels_count{};
     packet >> channels_count;
@@ -70,6 +70,19 @@ void Client::handle_server_message(Packet& packet) {
     for (std::uint32_t i = 0; i < channels_count; ++i) {
       packet >> channel_name;
       std::cout << '#' << channel_name << '\n';
+    }
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::NICKNAME) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::cout << "[System] Name changed successfully.\n" << std::flush;
+    }
+    else {
+      std::cout
+          << "[System] Invalid nickname. Use 3-20 alphanumeric characters.\n"
+          << std::flush;
     }
     std::cout << "> " << std::flush;
   }
@@ -88,10 +101,7 @@ void Client::run() {
     if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
-      // TODO: Add name filters
       m_nickname = new_name;
-      std::cout << "[System] Name changed to " << new_name << ".\n"
-                << std::flush;
     }
     else if (line.find("/join ") == 0) {
       std::string channel_name = line.substr(6);

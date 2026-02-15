@@ -12,15 +12,14 @@
 #include "User.h"
 
 class Server {
-  // TODO: users are defined as int (file descriptor) and User object,
-  // meanwhile channels are defined as string (channel name) and Channel object
-  // which maybe creates a layer of inconsistency?
   std::unordered_map<socket_t, User> m_users{};
   std::unordered_map<std::string, Channel> m_channels{};
 
   TcpListener m_listener{};
   SocketSelector m_polls{};
   bool m_running{};
+
+  bool is_valid_nickname(std::string_view nickname);
 
  public:
   Server(const std::string& ip, const std::string& port);
