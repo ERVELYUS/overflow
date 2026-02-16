@@ -97,7 +97,6 @@ void Client::run() {
 
     Packet p;
 
-    // TODO: add /leave
     if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
@@ -112,6 +111,19 @@ void Client::run() {
     }
     else if (line.find("/list") == 0) {
       p << static_cast<std::uint8_t>(CommandID::LIST);
+    }
+    else if (line.find("/leave") == 0) {
+      if (m_current_channel.empty()) {
+        std::cout << "[System] You are not a part of any channel right now.\n"
+                  << std::flush;
+        std::cout << "> " << std::flush;
+        continue;
+      }
+      std::cout << "[System] You are leaving #" << m_current_channel
+                << " channel.\n"
+                << std::flush;
+      p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
+      m_current_channel = "";
     }
     else {
       if (m_current_channel.empty()) {
