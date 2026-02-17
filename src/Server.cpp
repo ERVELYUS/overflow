@@ -27,9 +27,9 @@ void Server::run() {
   }
 }
 
-bool Server::is_valid_nickname(std::string_view nickname) {
+bool Server::is_valid_format(std::string_view name) {
   // Length check
-  if (nickname.length() < 3 || nickname.length() > 20) {
+  if (name.length() < 3 || name.length() > 20) {
     return false;
   }
 
@@ -37,16 +37,26 @@ bool Server::is_valid_nickname(std::string_view nickname) {
   auto is_valid_char = [](char c) {
     return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
   };
-  if (!std::all_of(nickname.begin(), nickname.end(), is_valid_char)) {
+  if (!std::all_of(name.begin(), name.end(), is_valid_char)) {
     return false;
   }
 
   // Reserved names (might be expanded)
-  std::string check_name{};
-  std::for_each(nickname.begin(), nickname.end(),
-                [](char c) { c = tolower(c); });
-  if (check_name == "system" || check_name == "admin" || check_name == "root" ||
-      check_name == "server") {
+  std::string lower_name{};
+  for (char c : name) {
+    lower_name += std::tolower(static_cast<unsigned char>(c));
+  }
+  if (lower_name == "system" || lower_name == "admin" || lower_name == "root" ||
+      lower_name == "server" || lower_name == "log") {
+    return false;
+  }
+
+  return true;
+}
+
+bool Server::is_valid_nickname(std::string_view nickname) {
+  // Check for correct format
+  if (!is_valid_format(nickname)) {
     return false;
   }
 
@@ -56,6 +66,20 @@ bool Server::is_valid_nickname(std::string_view nickname) {
       return false;
     }
   }
+
+  return true;
+}
+
+bool Server::is_valid_channel_name(std::string_view channel_name) {
+  // Check for correct format
+  if (!is_valid_format(channel_name)) {
+    return false;
+  }
+
+  // Uniqueness check (made redundant by create_channel)
+  /* if (m_channels.find(std::string(channel_name)) != m_channels.end()) {
+    return false;
+  } */
 
   return true;
 }
@@ -133,12 +157,25 @@ void Server::process_command(User& user, const Packet& packet) {
       std::string channel_name;
       p >> channel_name;
 
-      // TODO: maybe not allow user to create random channels?
-      Channel* channel = create_channel(channel_name);
+      Channel* target_channel = find_channel(channel_name);
 
-      std::cout << "[LOG] User " << user.get_name() << " joined #"
-                << channel_name << " channel\n";
-      channel->add_user(&user);
+      if (target_channel != nullptr) {
+        target_channel->add_user(&user);
+        Packet success_packet;
+        success_packet << static_cast<std::uint8_t>(CommandID::JOIN) << true
+                       << channel_name;
+        user.send(success_packet);
+        std::cout << "[LOG] User " << user.get_name() << " joined #"
+                  << channel_name << " channel\n";
+      }
+      else {
+        Packet error_packet;
+        error_packet << static_cast<std::uint8_t>(CommandID::JOIN) << false;
+        user.send(error_packet);
+        std::cout << "[LOG] User " << user.get_name() << " failed to join #"
+                  << channel_name << " (Not found)\n";
+      }
+
       break;
     }
     case CommandID::MSG: {
@@ -160,7 +197,7 @@ void Server::process_command(User& user, const Packet& packet) {
       break;
     }
     case CommandID::LEAVE: {
-      std::string target_channel;
+      std::string target_channel{};
       p >> target_channel;
 
       auto it = m_channels.find(target_channel);
@@ -182,6 +219,39 @@ void Server::process_command(User& user, const Packet& packet) {
                 << " requested a list of channels\n"
                 << std::flush;
       user.send(channels_list);
+
+      break;
+    }
+    case CommandID::CREATE: {
+      std::string channel_name{};
+      p >> channel_name;
+
+      Packet create_result{};
+      create_result << static_cast<std::uint8_t>(CommandID::CREATE);
+      ChannelCreateReturnValue result = create_channel(channel_name);
+      if (result == ChannelCreateReturnValue::SUCCESS) {
+        std::string success_message =
+            "[System] Channel #" + channel_name + " created.\n";
+        create_result << success_message;
+        std::cout << "[LOG] User " << user.get_name() << " created a channel #"
+                  << channel_name << '\n';
+      }
+      else {
+        std::string error_message;
+        if (result == ChannelCreateReturnValue::INVALID_NAME) {
+          error_message +=
+              "[System] Invalid channel name. Use 3-20 alphanumeric chars.\n";
+        }
+        else if (result == ChannelCreateReturnValue::ALREADY_EXISTS) {
+          error_message += "[System] Channel with that name already exists.\n";
+        }
+        create_result << error_message;
+        std::cout << "[LOG] User " << user.get_name()
+                  << " tried to create a channel #" << channel_name
+                  << " unsuccessfully\n";
+      }
+
+      user.send(create_result);
       break;
     }
     case CommandID::ERROR:
@@ -204,7 +274,24 @@ void Server::disconnect_user(socket_t user_fd) {
   m_users.erase(user_fd);
 }
 
-Channel* Server::create_channel(std::string_view name) {
-  // Because it's a map, even if channel doesn't exist - it will create one
-  return &m_channels[std::string(name)];
+Channel* Server::find_channel(std::string_view name) {
+  auto it = m_channels.find(std::string(name));
+
+  if (it != m_channels.end()) {
+    return &(it->second);
+  }
+
+  return nullptr;
+}
+
+Server::ChannelCreateReturnValue Server::create_channel(std::string_view name) {
+  if (!is_valid_channel_name(name)) {
+    return ChannelCreateReturnValue::INVALID_NAME;
+  }
+  if (m_channels.find(std::string(name)) != m_channels.end()) {
+    return ChannelCreateReturnValue::ALREADY_EXISTS;
+  }
+
+  m_channels.emplace(std::string(name), Channel());
+  return ChannelCreateReturnValue::SUCCESS;
 }

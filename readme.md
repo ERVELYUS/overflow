@@ -33,7 +33,7 @@ The foundation is solid. The next steps focus on **Protocol Robustness, Logic, a
 - [X] **User Leavng Channel:** Handle user typing `/leave`
 - [X] **Nickname filters:** Add filters to `/nick <name>` to restrict usernames
 - [ ] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
-- [ ] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
+- [X] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
 - [ ] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
 - [ ] **Direct contact:** Add `/msg` as a way to send DMs
 

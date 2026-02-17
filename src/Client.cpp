@@ -84,6 +84,30 @@ void Client::handle_server_message(Packet& packet) {
           << "[System] Invalid nickname. Use 3-20 alphanumeric characters.\n"
           << std::flush;
     }
+
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::JOIN) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::string channel_name;
+      packet >> channel_name;
+      m_current_channel = channel_name;
+      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
+                << std::flush;
+    }
+    else {
+      std::cout << "Channel does not exist. Use /create to create it.\n"
+                << std::flush;
+    }
+
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::CREATE) {
+    std::string message{};
+    packet >> message;
+    std::cout << message << std::flush;
     std::cout << "> " << std::flush;
   }
 }
@@ -103,11 +127,16 @@ void Client::run() {
       m_nickname = new_name;
     }
     else if (line.find("/join ") == 0) {
+      if (!m_current_channel.empty()) {
+        std::cout << "[System] You are already connected to channel #"
+                  << m_current_channel
+                  << ". Type /leave before trying to join other channel.\n"
+                  << std::flush;
+        std::cout << "> " << std::flush;
+        continue;
+      }
       std::string channel_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
-      m_current_channel = channel_name;
-      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
-                << std::flush;
     }
     else if (line.find("/list") == 0) {
       p << static_cast<std::uint8_t>(CommandID::LIST);
@@ -125,9 +154,13 @@ void Client::run() {
       p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
       m_current_channel = "";
     }
+    else if (line.find("/create ") == 0) {
+      std::string channel_name = line.substr(8);
+      p << static_cast<std::uint8_t>(CommandID::CREATE) << channel_name;
+    }
     else {
       if (m_current_channel.empty()) {
-        std::cout << "[System] Join a channel first via /join server_name\n"
+        std::cout << "[System] Join a channel first via /join <server_name>\n"
                   << std::flush;
         std::cout << "> " << std::flush;
         continue;

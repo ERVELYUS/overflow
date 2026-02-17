@@ -9,5 +9,6 @@ enum class CommandID : std::uint8_t {
   LEAVE = 3,
   NICKNAME = 4,
   LIST = 5,
-  ERROR = 6
+  CREATE = 6,
+  ERROR = 7
 };

@@ -19,7 +19,9 @@ class Server {
   SocketSelector m_polls{};
   bool m_running{};
 
+  bool is_valid_format(std::string_view name);
   bool is_valid_nickname(std::string_view nickname);
+  bool is_valid_channel_name(std::string_view channel_name);
 
  public:
   Server(const std::string& ip, const std::string& port);
@@ -33,5 +35,11 @@ class Server {
 
   void disconnect_user(socket_t socket_fd);
 
-  Channel* create_channel(std::string_view name);
+  enum class ChannelCreateReturnValue {
+    SUCCESS,
+    INVALID_NAME,
+    ALREADY_EXISTS,
+  };
+  ChannelCreateReturnValue create_channel(std::string_view name);
+  Channel* find_channel(std::string_view name);
 };
