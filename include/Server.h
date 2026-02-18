@@ -23,6 +23,8 @@ class Server {
   bool is_valid_nickname(std::string_view nickname);
   bool is_valid_channel_name(std::string_view channel_name);
 
+  std::uint32_t m_next_user_id = 1;
+
  public:
   Server(const std::string& ip, const std::string& port);
 

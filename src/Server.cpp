@@ -10,18 +10,16 @@ void Server::run() {
 
   std::cout << "Server created and running\n";
   while (m_running) {
-    m_polls.wait();
+    std::vector<socket_t> ready_fds = m_polls.wait();
 
-    if (m_polls.is_ready(m_listener)) {
-      handle_new_connection();
-    }
-
-    // TODO: change SocketSelector to return list of sockets that changed
-    auto it = m_users.begin();
-    while (it != m_users.end()) {
-      auto current = it++;
-      if (m_polls.is_ready(current->second.get_socket())) {
-        handle_client_message(current->first);
+    for (socket_t fd : ready_fds) {
+      if (fd == m_listener.get_fd()) {
+        handle_new_connection();
+      }
+      else {
+        if (m_users.find(fd) != m_users.end()) {
+          handle_client_message(fd);
+        }
       }
     }
   }
@@ -104,7 +102,8 @@ void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
   m_polls.add(user_socket, POLLIN);
-  m_users.emplace(fd, User(std::move(user_socket), "user"));
+  std::string default_nickname = "user_" + std::to_string(m_next_user_id++);
+  m_users.emplace(fd, User(std::move(user_socket), default_nickname));
   std::cout << "[LOG] New user connected\n" << std::flush;
 }
 
