@@ -35,7 +35,7 @@ The foundation is solid. The next steps focus on **Protocol Robustness, Logic, a
 - [X] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
 - [X] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
 - [X] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
-- [ ] **Direct contact:** Add `/msg` as a way to send DMs
+- [X] **Direct contact:** Add `/msg` as a way to send DMs
 
 ### 2. Features
 - [ ] **UI:** Create a UI version via imgui

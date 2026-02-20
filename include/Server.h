@@ -12,8 +12,11 @@
 #include "User.h"
 
 class Server {
-  std::unordered_map<socket_t, User> m_users{};
   std::unordered_map<std::string, Channel> m_channels{};
+
+  // We have two maps for users to optimize lookup time
+  std::unordered_map<socket_t, User> m_users{};
+  std::unordered_map<std::string, socket_t> m_nick_to_fd{};
 
   TcpListener m_listener{};
   SocketSelector m_polls{};

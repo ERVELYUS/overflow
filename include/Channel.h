@@ -4,14 +4,13 @@
 
 #include <vector>
 
-#include "User.h"
+#include "cppcon/UniversalTypes.h"
 
 class Channel {
-  std::vector<User*> m_users{};
+  std::vector<socket_t> m_user_fds{};
 
  public:
-  void add_user(User* user);
-  void remove_user(User* user);
-
-  void broadcast(const Packet& packet, User* sender);
+  void add_user(socket_t user);
+  void remove_user(socket_t user);
+  const std::vector<socket_t>& get_users() const { return m_user_fds; }
 };

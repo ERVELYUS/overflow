@@ -59,13 +59,7 @@ bool Server::is_valid_nickname(std::string_view nickname) {
   }
 
   // Uniqueness check
-  for (const auto& [fd, user] : m_users) {
-    if (user.get_name() == nickname) {
-      return false;
-    }
-  }
-
-  return true;
+  return m_nick_to_fd.find(std::string(nickname)) == m_nick_to_fd.end();
 }
 
 bool Server::is_valid_channel_name(std::string_view channel_name) {
@@ -104,6 +98,7 @@ void Server::handle_new_connection() {
   m_polls.add(user_socket, POLLIN);
   std::string default_nickname = "user_" + std::to_string(m_next_user_id++);
   m_users.emplace(fd, User(std::move(user_socket), default_nickname));
+  m_nick_to_fd.emplace(default_nickname, fd);
   std::cout << "[LOG] New user connected\n" << std::flush;
 }
 
@@ -140,6 +135,11 @@ void Server::process_command(User& user, const Packet& packet) {
                   << " from '" << user.get_name() << "' to '" << new_name
                   << "'\n"
                   << std::flush;
+
+        // Sync
+        m_nick_to_fd.erase(std::string(user.get_name()));
+        m_nick_to_fd.emplace(new_name, user.get_socket().get_fd());
+
         user.set_name(new_name);
       }
       else {
@@ -159,7 +159,7 @@ void Server::process_command(User& user, const Packet& packet) {
       Channel* target_channel = find_channel(channel_name);
 
       if (target_channel != nullptr) {
-        target_channel->add_user(&user);
+        target_channel->add_user(user.get_socket().get_fd());
         Packet success_packet;
         success_packet << static_cast<std::uint8_t>(CommandID::JOIN) << true
                        << channel_name;
@@ -178,9 +178,7 @@ void Server::process_command(User& user, const Packet& packet) {
       break;
     }
     case CommandID::MSG: {
-      std::string target_channel;
-      std::string message_text;
-
+      std::string target_channel, message_text;
       p >> target_channel >> message_text;
 
       auto it = m_channels.find(target_channel);
@@ -191,7 +189,43 @@ void Server::process_command(User& user, const Packet& packet) {
         broadcast_packet << static_cast<std::uint8_t>(CommandID::MSG)
                          << std::string(user.get_name()) << message_text;
 
-        channel.broadcast(broadcast_packet, &user);
+        for (socket_t target_fd : channel.get_users()) {
+          if (target_fd == user.get_socket().get_fd()) continue;
+
+          m_users.at(target_fd).send(broadcast_packet);
+        }
+      }
+      break;
+    }
+    case CommandID::PRIVATE_MSG: {
+      std::string target_name, message_text;
+      p >> target_name >> message_text;
+
+      auto it = m_nick_to_fd.find(target_name);
+      if (it != m_nick_to_fd.end()) {
+        socket_t target_fd = it->second;
+
+        auto user_it = m_users.find(target_fd);
+        if (user_it != m_users.end()) {
+          Packet dm_packet{};
+          dm_packet << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG)
+                    << std::string(user.get_name()) << message_text;
+
+          user_it->second.send(dm_packet);
+
+          std::cout << "[LOG] User @" << user.get_name() << " sent DM to user @"
+                    << target_name << '\n';
+        }
+        else {
+          m_nick_to_fd.erase(it);
+        }
+      }
+      else {
+        Packet error_packet{};
+        error_packet << static_cast<std::uint8_t>(CommandID::ERROR)
+                     << "User @" + target_name +
+                            " is offline or does not exist.";
+        user.send(error_packet);
       }
       break;
     }
@@ -201,15 +235,15 @@ void Server::process_command(User& user, const Packet& packet) {
 
       auto it = m_channels.find(target_channel);
       if (it != m_channels.end()) {
-        it->second.remove_user(&user);
+        it->second.remove_user(user.get_socket().get_fd());
       }
       std::cout << "[LOG] User " << user.get_name() << " left #"
                 << target_channel << " channel\n";
       break;
     }
-    case CommandID::LIST: {
+    case CommandID::LIST_CHANNELS: {
       Packet channels_list{};
-      channels_list << static_cast<std::uint8_t>(CommandID::LIST)
+      channels_list << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS)
                     << static_cast<std::uint32_t>(m_channels.size());
       for (auto channel : m_channels) {
         channels_list << channel.first;
@@ -218,6 +252,20 @@ void Server::process_command(User& user, const Packet& packet) {
                 << " requested a list of channels\n"
                 << std::flush;
       user.send(channels_list);
+
+      break;
+    }
+    case CommandID::LIST_USERS: {
+      Packet users_list{};
+      users_list << static_cast<std::uint8_t>(CommandID::LIST_USERS)
+                 << static_cast<std::uint32_t>(m_users.size()) - 1;
+      for (const auto& [fd, online_user] : m_users) {
+        if (user.get_name() == online_user.get_name()) {
+          continue;
+        }
+        users_list << std::string(online_user.get_name());
+      }
+      user.send(users_list);
 
       break;
     }
@@ -264,13 +312,21 @@ void Server::process_command(User& user, const Packet& packet) {
 }
 
 void Server::disconnect_user(socket_t user_fd) {
-  User* user_to_delete = &m_users.at(user_fd);
-  for (auto& channel : m_channels) {
-    channel.second.remove_user(user_to_delete);
-  }
-  m_polls.remove(user_to_delete->get_socket());
+  auto it = m_users.find(user_fd);
+  if (it == m_users.end()) return;
 
-  m_users.erase(user_fd);
+  User& user_to_delete = it->second;
+
+  m_nick_to_fd.erase(std::string(user_to_delete.get_name()));
+
+  for (auto& [name, channel] : m_channels) {
+    channel.remove_user(user_fd);
+  }
+
+  m_polls.remove(user_to_delete.get_socket());
+  m_users.erase(it);
+
+  std::cout << "[LOG] Socket " << user_fd << " disconnected and cleaned up\n";
 }
 
 Channel* Server::find_channel(std::string_view name) {

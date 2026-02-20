@@ -2,18 +2,11 @@
 
 #include <algorithm>
 
-void Channel::add_user(User* user) { m_users.push_back(user); }
+#include "cppcon/UniversalTypes.h"
 
-void Channel::remove_user(User* user) {
-  m_users.erase(std::remove(m_users.begin(), m_users.end(), user),
-                m_users.end());
-}
+void Channel::add_user(socket_t user) { m_user_fds.push_back(user); }
 
-void Channel::broadcast(const Packet& packet, User* sender) {
-  for (auto member : m_users) {
-    if (member == sender) {
-      continue;
-    }
-    member->send(packet);
-  }
+void Channel::remove_user(socket_t fd) {
+  m_user_fds.erase(std::remove(m_user_fds.begin(), m_user_fds.end(), fd),
+                   m_user_fds.end());
 }
