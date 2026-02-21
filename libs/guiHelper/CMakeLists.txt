@@ -29,6 +29,6 @@ set(HELPER_SOURCES
 add_library(guiHelper STATIC ${HELPER_SOURCES})
 
 target_include_directories(guiHelper PRIVATE include)
-target_include_directories(guiHelper PRIVATE 3rdparty/imgui)
+target_include_directories(guiHelper PUBLIC 3rdparty/imgui)
 
 target_link_libraries(guiHelper glfw OpenGL::GL)

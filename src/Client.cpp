@@ -7,6 +7,7 @@
 
 #include "Protocol.h"
 #include "cppcon/AddrInfoResolver.h"
+#include "Message.h"
 
 Client::Client() : m_running(false) {}
 
@@ -34,7 +35,7 @@ void Client::connect(const std::string& ip, const std::string& port) {
       Packet packet{};
 
       if (m_socket.recv(packet)) {
-        this->handle_server_message(packet);
+        handle_server_message(packet);
       }
       else {
         if (m_running) {
@@ -56,6 +57,9 @@ void Client::handle_server_message(Packet& packet) {
     std::string sender, content;
     packet >> sender >> content;
 
+    auto message = std::make_shared<UserMessage>(UserMessage(sender, content));
+    if (m_messageHandler) m_messageHandler(message);
+
     std::cout << "\r[" << sender << "]: " << content << "\n" << std::flush;
 
     std::cout << "> " << std::flush;
@@ -67,10 +71,18 @@ void Client::handle_server_message(Packet& packet) {
     packet >> channels_count;
 
     std::string channel_name;
+
+    ChannelsList channelNames;
+
     for (std::uint32_t i = 0; i < channels_count; ++i) {
       packet >> channel_name;
+      channelNames << channel_name;
       std::cout << '#' << channel_name << '\n';
     }
+
+    auto message = std::make_shared<ChannelsList>(channelNames);
+    if (m_messageHandler) m_messageHandler(message);
+
     std::cout << "> " << std::flush;
   }
   else if (id == CommandID::LIST_USERS) {
@@ -80,10 +92,18 @@ void Client::handle_server_message(Packet& packet) {
     packet >> users_count;
 
     std::string user_name;
+
+    UsersList userNames;
+
     for (std::uint32_t i = 0; i < users_count; ++i) {
       packet >> user_name;
+      userNames << user_name;
       std::cout << '@' << user_name << '\n';
     }
+
+    auto message = std::make_shared<UsersList>(userNames);
+    if (m_messageHandler) m_messageHandler(message);
+
     std::cout << "> " << std::flush;
   }
   else if (id == CommandID::NICKNAME) {
@@ -216,4 +236,9 @@ void Client::run() {
 
     std::cout << "> " << std::flush;
   }
+}
+
+void Client::SetupMessageHandler(std::function<void(std::shared_ptr<Message>)> handler)
+{
+  m_messageHandler = handler;
 }
