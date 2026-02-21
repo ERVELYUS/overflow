@@ -1,13 +1,14 @@
 #pragma once
 
+#include <Message.h>
 #include <cppcon/Packet.h>
 #include <cppcon/TcpSocket.h>
-#include <Message.h>
 
 #include <atomic>
+#include <functional>
+#include <memory>
 #include <string>
 #include <thread>
-#include <functional>
 
 class Client {
   TcpSocket m_socket{};
