@@ -60,8 +60,8 @@ void Client::handle_server_message(Packet& packet) {
 
     std::cout << "> " << std::flush;
   }
-  else if (id == CommandID::LIST) {
-    std::cout << "[System] List of all available channels:\n";
+  else if (id == CommandID::LIST_CHANNELS) {
+    std::cout << "[System] List of all available channels:\n" << std::flush;
 
     std::uint32_t channels_count{};
     packet >> channels_count;
@@ -72,6 +72,66 @@ void Client::handle_server_message(Packet& packet) {
       std::cout << '#' << channel_name << '\n';
     }
     std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::LIST_USERS) {
+    std::cout << "[System] List of all users:\n" << std::flush;
+
+    std::uint32_t users_count{};
+    packet >> users_count;
+
+    std::string user_name;
+    for (std::uint32_t i = 0; i < users_count; ++i) {
+      packet >> user_name;
+      std::cout << '@' << user_name << '\n';
+    }
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::NICKNAME) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::cout << "[System] Name changed successfully.\n" << std::flush;
+    }
+    else {
+      std::cout
+          << "[System] Invalid nickname. Use 3-20 alphanumeric characters.\n"
+          << std::flush;
+    }
+
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::JOIN) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::string channel_name;
+      packet >> channel_name;
+      m_current_channel = channel_name;
+      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
+                << std::flush;
+    }
+    else {
+      std::cout << "Channel does not exist. Use /create to create it.\n"
+                << std::flush;
+    }
+
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::PRIVATE_MSG) {
+    std::string sender, content;
+    packet >> sender >> content;
+    std::cout << "\r[@" << sender << "]: " << content << "\n> " << std::flush;
+  }
+  else if (id == CommandID::CREATE) {
+    std::string message{};
+    packet >> message;
+    std::cout << message << std::flush;
+    std::cout << "> " << std::flush;
+  }
+  else if (id == CommandID::ERROR) {
+    std::string error_msg;
+    packet >> error_msg;
+    std::cout << "\r[Error] " << error_msg << "\n> " << std::flush;
   }
 }
 
@@ -84,28 +144,66 @@ void Client::run() {
 
     Packet p;
 
-    // TODO: add /leave
     if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
-      // TODO: Add name filters
       m_nickname = new_name;
-      std::cout << "[System] Name changed to " << new_name << ".\n"
-                << std::flush;
     }
     else if (line.find("/join ") == 0) {
+      if (!m_current_channel.empty()) {
+        std::cout << "[System] You are already connected to channel #"
+                  << m_current_channel
+                  << ". Type /leave before trying to join other channel.\n"
+                  << std::flush;
+        std::cout << "> " << std::flush;
+        continue;
+      }
       std::string channel_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
-      m_current_channel = channel_name;
-      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
-                << std::flush;
     }
-    else if (line.find("/list") == 0) {
-      p << static_cast<std::uint8_t>(CommandID::LIST);
+    else if (line.find("/channels") == 0) {
+      p << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS);
+    }
+    else if (line.find("/users") == 0) {
+      p << static_cast<std::uint8_t>(CommandID::LIST_USERS);
+    }
+    else if (line.find("/msg ") == 0) {
+      std::string remaining = line.substr(5);
+      size_t space_pos = remaining.find(' ');
+
+      if (space_pos != std::string::npos &&
+          space_pos < remaining.length() - 1) {
+        std::string target = remaining.substr(0, space_pos);
+        std::string text = remaining.substr(space_pos + 1);
+
+        p << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG) << target
+          << text;
+      }
+      else {
+        std::cout << "[System] Usage: /msg <nickname> <message>\n> "
+                  << std::flush;
+      }
+    }
+    else if (line.find("/leave") == 0) {
+      if (m_current_channel.empty()) {
+        std::cout << "[System] You are not a part of any channel right now.\n"
+                  << std::flush;
+        std::cout << "> " << std::flush;
+        continue;
+      }
+      std::cout << "[System] You are leaving #" << m_current_channel
+                << " channel.\n"
+                << std::flush;
+      p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
+      m_current_channel = "";
+    }
+    else if (line.find("/create ") == 0) {
+      std::string channel_name = line.substr(8);
+      p << static_cast<std::uint8_t>(CommandID::CREATE) << channel_name;
     }
     else {
       if (m_current_channel.empty()) {
-        std::cout << "[System] Join a channel first via /join server_name\n"
+        std::cout << "[System] Join a channel first via /join <server_name>\n"
                   << std::flush;
         std::cout << "> " << std::flush;
         continue;
