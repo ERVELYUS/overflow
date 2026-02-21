@@ -12,15 +12,21 @@
 #include "User.h"
 
 class Server {
-  // TODO: users are defined as int (file descriptor) and User object,
-  // meanwhile channels are defined as string (channel name) and Channel object
-  // which maybe creates a layer of inconsistency?
-  std::unordered_map<socket_t, User> m_users{};
   std::unordered_map<std::string, Channel> m_channels{};
+
+  // We have two maps for users to optimize lookup time
+  std::unordered_map<socket_t, User> m_users{};
+  std::unordered_map<std::string, socket_t> m_nick_to_fd{};
 
   TcpListener m_listener{};
   SocketSelector m_polls{};
   bool m_running{};
+
+  bool is_valid_format(std::string_view name);
+  bool is_valid_nickname(std::string_view nickname);
+  bool is_valid_channel_name(std::string_view channel_name);
+
+  std::uint32_t m_next_user_id = 1;
 
  public:
   Server(const std::string& ip, const std::string& port);
@@ -34,5 +40,11 @@ class Server {
 
   void disconnect_user(socket_t socket_fd);
 
-  Channel* create_channel(std::string_view name);
+  enum class ChannelCreateReturnValue {
+    SUCCESS,
+    INVALID_NAME,
+    ALREADY_EXISTS,
+  };
+  ChannelCreateReturnValue create_channel(std::string_view name);
+  Channel* find_channel(std::string_view name);
 };

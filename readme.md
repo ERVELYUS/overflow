@@ -29,13 +29,13 @@ Instead of relying on heavy external frameworks like Boost.Asio, `cppcon` implem
 The foundation is solid. The next steps focus on **Protocol Robustness, Logic, and UI**.
 
 ### 1. Server Logic 
-- [ ] **User Disconnection:** Handle user disconnecting from the server
-- [ ] **User Leavng Channel:** Handle user typing `/leave`
-- [ ] **Nickname filters:** Add filters to `/nick <name>` to restrict usernames
-- [ ] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
-- [ ] **Server start behaviour change:** Add ability to pass `local` or `global` arguments to Server
-- [ ] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
-- [ ] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
+- [X] **User Disconnection:** Handle user disconnecting from the server
+- [X] **User Leavng Channel:** Handle user typing `/leave`
+- [X] **Nickname filters:** Add filters to `/nick <name>` to restrict usernames
+- [X] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
+- [X] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
+- [X] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
+- [X] **Direct contact:** Add `/msg` as a way to send DMs
 
 ### 2. Features
 - [ ] **UI:** Create a UI version via imgui

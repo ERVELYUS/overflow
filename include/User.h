@@ -14,7 +14,7 @@ class User {
 
   void set_name(std::string_view new_name);
 
-  std::string_view get_name();
+  std::string_view get_name() const;
   TcpSocket& get_socket();
 
   void send(const Packet& packet);
