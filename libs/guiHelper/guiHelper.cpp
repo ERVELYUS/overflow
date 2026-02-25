@@ -1,7 +1,5 @@
-#include <guiHelper.h>
-
 #include <GLFW/glfw3.h>
-
+#include <guiHelper.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -43,7 +41,7 @@ void GuiHelper::Window::RenderFrame() {
   ImGui::SetNextWindowPos(ImVec2(0, 0));
   ImGui::SetNextWindowSize(ImVec2(m_windowWidth, m_windowHeight));
   // Флаги для окна без рамки и заголовка
-  ImGuiWindowFlags window_flags =
+  /* ImGuiWindowFlags window_flags =
       ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
 
@@ -51,8 +49,8 @@ void GuiHelper::Window::RenderFrame() {
 
   m_renderFunc();
 
-  ImGui::End();
-  // ImGui::ShowDemoWindow();
+  ImGui::End(); */
+  ImGui::ShowDemoWindow();
 
   // Rendering.
 

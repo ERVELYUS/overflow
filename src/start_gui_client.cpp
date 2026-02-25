@@ -6,7 +6,6 @@
 
 #include "Client.h"
 
-
 // class
 
 std::vector<UserMessage> messageHistory = {};
@@ -38,7 +37,7 @@ static void ClentDoWork() {
   try {
     Client client{};
 
-    client.SetupMessageHandler(&HandleMessage);
+    client.setup_message_handler(&HandleMessage);
 
     std::cout << "Connecting to localhost...\n";
     client.connect("127.0.0.1", "6456");

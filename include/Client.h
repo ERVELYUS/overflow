@@ -14,7 +14,7 @@ class Client {
   TcpSocket m_socket{};
   std::atomic<bool> m_running{};
   std::thread m_recieve_thread{};
-  std::function<void(std::shared_ptr<Message>)> m_messageHandler;
+  std::function<void(std::shared_ptr<Message>)> m_message_handler;
 
   std::string m_nickname{};
   std::string m_current_channel{};
@@ -29,5 +29,5 @@ class Client {
 
   void run();
 
-  void SetupMessageHandler(std::function<void(std::shared_ptr<Message>)>);
+  void setup_message_handler(std::function<void(std::shared_ptr<Message>)>);
 };

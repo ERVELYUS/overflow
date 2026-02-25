@@ -1,3 +1,6 @@
 [submodule "libs/cppcon"]
 	path = libs/cppcon
 	url = https://github.com/ERVELYUS/cppcon.git
+[submodule "libs/ftxui"]
+	path = libs/ftxui
+	url = https://github.com/ArthurSonzogni/FTXUI.git

@@ -5,9 +5,9 @@
 #include <ostream>
 #include <stdexcept>
 
+#include "Message.h"
 #include "Protocol.h"
 #include "cppcon/AddrInfoResolver.h"
-#include "Message.h"
 
 Client::Client() : m_running(false) {}
 
@@ -57,8 +57,11 @@ void Client::handle_server_message(Packet& packet) {
     std::string sender, content;
     packet >> sender >> content;
 
+    // Here's the the handler hook
     auto message = std::make_shared<UserMessage>(UserMessage(sender, content));
-    if (m_messageHandler) m_messageHandler(message);
+    if (m_message_handler) {
+      m_message_handler(message);
+    }
 
     std::cout << "\r[" << sender << "]: " << content << "\n" << std::flush;
 
@@ -81,7 +84,7 @@ void Client::handle_server_message(Packet& packet) {
     }
 
     auto message = std::make_shared<ChannelsList>(channelNames);
-    if (m_messageHandler) m_messageHandler(message);
+    if (m_message_handler) m_message_handler(message);
 
     std::cout << "> " << std::flush;
   }
@@ -102,7 +105,7 @@ void Client::handle_server_message(Packet& packet) {
     }
 
     auto message = std::make_shared<UsersList>(userNames);
-    if (m_messageHandler) m_messageHandler(message);
+    if (m_message_handler) m_message_handler(message);
 
     std::cout << "> " << std::flush;
   }
@@ -238,7 +241,7 @@ void Client::run() {
   }
 }
 
-void Client::SetupMessageHandler(std::function<void(std::shared_ptr<Message>)> handler)
-{
-  m_messageHandler = handler;
+void Client::setup_message_handler(
+    std::function<void(std::shared_ptr<Message>)> handler) {
+  m_message_handler = handler;
 }
