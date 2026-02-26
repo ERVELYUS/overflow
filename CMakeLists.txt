@@ -48,16 +48,22 @@ target_link_libraries(overflow_gui_client PRIVATE cppcon guiHelper)
 # TUI CLIENT SIDE
 set(TUI_CLIENT_SOURCES
   src/start_tui_client.cpp
+  src/TuiApp.cpp
   src/Client.cpp
 )
 
 add_executable(overflow_tui_client ${TUI_CLIENT_SOURCES})
+target_include_directories(overflow_tui_client PRIVATE include)
 target_link_libraries(overflow_tui_client PRIVATE
     cppcon
     ftxui::screen
     ftxui::dom
     ftxui::component
 )
+
+if(UNIX)
+  target_link_libraries(overflow_tui_client PRIVATE pthread)
+endif()
 
 if(WIN32)
   target_link_libraries(overflow_server PRIVATE Ws2_32)
