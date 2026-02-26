@@ -16,10 +16,13 @@ class TuiApp {
 
   Client m_client{};
   std::vector<std::string> m_chat_history{};
+  std::vector<std::string> m_users_list{};
 
   std::mutex m_chat_mutex{};
   std::thread m_network_thread{};
   bool m_running = false;
 
   ftxui::ScreenInteractive m_screen;
+  std::string m_input_buffer{};
+  ftxui::Component m_input_field;
 };

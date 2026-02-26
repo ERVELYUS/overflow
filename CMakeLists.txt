@@ -49,6 +49,7 @@ target_link_libraries(overflow_gui_client PRIVATE cppcon guiHelper)
 set(TUI_CLIENT_SOURCES
   src/start_tui_client.cpp
   src/TuiApp.cpp
+  src/tui/Layouts.cpp
   src/Client.cpp
 )
 

@@ -30,4 +30,6 @@ class Client {
   void run();
 
   void setup_message_handler(std::function<void(std::shared_ptr<Message>)>);
+
+  void send_message(const std::string& line);
 };
