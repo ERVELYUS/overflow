@@ -10,8 +10,12 @@ using namespace ftxui;
 
 TuiApp::TuiApp()
     : m_running(true), m_screen(ScreenInteractive::TerminalOutput()) {
-  m_input_field = Input(&m_input_buffer, "Type here...");
+  m_tab_toggle = Toggle(&m_tab_entries, &m_tab_selected);
 
+  m_settings_button = Button("Settings", [this] {
+    // TODO: Add settings
+  });
+  m_input_field = Input(&m_input_buffer, "type here...");
   m_input_field = CatchEvent(m_input_field, [this](Event event) {
     if (event == Event::Return) {
       if (!m_input_buffer.empty()) {
@@ -23,6 +27,14 @@ TuiApp::TuiApp()
       }
     }
     return false;
+  });
+
+  m_main_container = Container::Vertical({
+      Container::Horizontal({
+          m_tab_toggle,
+          m_settings_button,
+      }),
+      m_input_field,
   });
 
   m_client.setup_message_handler(
@@ -65,11 +77,11 @@ void TuiApp::run() {
       m_input_field,
   });
 
-  auto renderer = Renderer(main_conatainer, [this] {
+  auto renderer = Renderer(m_main_container, [this] {
     std::lock_guard<std::mutex> lock(m_chat_mutex);
-
-    return TuiDesign::RenderMainLayout(m_chat_history, m_users_list,
-                                       m_input_field->Render());
+    return TuiDesign::RenderMainLayout(m_tab_toggle->Render(),
+                                       m_settings_button->Render(),
+                                       m_chat_history, m_input_field->Render());
   });
 
   m_screen.Loop(renderer);
