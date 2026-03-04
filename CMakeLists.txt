@@ -1,60 +1,79 @@
 cmake_minimum_required(VERSION 3.10)
-project(overflow VERSION 1.0)
+project(overflow VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(UNIX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-endif()
-
-include_directories(overflow PRIVATE include)
-include_directories(overflow PRIVATE libs/cppcon/include)
+# Subprojects / External libs
 add_subdirectory(libs/cppcon)
 add_subdirectory(libs/ftxui)
 add_subdirectory(libs/guiHelper)
 
-# SERVER SIDE
-set(SERVER_SOURCES
-  src/start_server.cpp
-  src/User.cpp
-  src/Server.cpp
-  src/Channel.cpp
+set(CPPCON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/cppcon/include")
+
+# Server
+add_executable(overflow_server
+    src/start_server.cpp
+    src/User.cpp
+    src/Server.cpp
+    src/Channel.cpp
 )
 
-add_executable(overflow_server ${SERVER_SOURCES})
-target_link_libraries(overflow_server PRIVATE cppcon)
-
-# CLIENT SIDE
-set(CLIENT_SOURCES
-  src/start_client.cpp
-  src/Client.cpp
+target_include_directories(overflow_server PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CPPCON_INCLUDE_DIR}
 )
 
-add_executable(overflow_client ${CLIENT_SOURCES})
-target_link_libraries(overflow_client PRIVATE cppcon)
-
-
-# GUI CLIENT SIDE
-set(GUI_CLIENT_SOURCES
-  src/start_gui_client.cpp
-  src/Client.cpp
+target_link_libraries(overflow_server PRIVATE
+    cppcon
 )
 
-add_executable(overflow_gui_client ${GUI_CLIENT_SOURCES})
-target_include_directories(overflow_gui_client PRIVATE libs/guiHelper/include)
-target_link_libraries(overflow_gui_client PRIVATE cppcon guiHelper)
-
-# TUI CLIENT SIDE
-set(TUI_CLIENT_SOURCES
-  src/start_tui_client.cpp
-  src/TuiApp.cpp
-  src/tui/Layouts.cpp
-  src/Client.cpp
+# CLI Client
+add_executable(overflow_client
+    src/start_client.cpp
+    src/Client.cpp
 )
 
-add_executable(overflow_tui_client ${TUI_CLIENT_SOURCES})
-target_include_directories(overflow_tui_client PRIVATE include)
+target_include_directories(overflow_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CPPCON_INCLUDE_DIR}
+)
+
+target_link_libraries(overflow_client PRIVATE
+    cppcon
+)
+
+# GUI Client
+add_executable(overflow_gui_client
+    src/start_gui_client.cpp
+    src/Client.cpp
+)
+
+target_include_directories(overflow_gui_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CPPCON_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/guiHelper/include
+)
+
+target_link_libraries(overflow_gui_client PRIVATE
+    cppcon
+    guiHelper
+)
+
+# TUI Client
+add_executable(overflow_tui_client
+    src/start_tui_client.cpp
+    src/TuiApp.cpp
+    src/tui/Layouts.cpp
+    src/Client.cpp
+)
+
+target_include_directories(overflow_tui_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CPPCON_INCLUDE_DIR}
+)
+
 target_link_libraries(overflow_tui_client PRIVATE
     cppcon
     ftxui::screen
@@ -62,8 +81,14 @@ target_link_libraries(overflow_tui_client PRIVATE
     ftxui::component
 )
 
+# Platform-specific Linking
 if(UNIX)
-  target_link_libraries(overflow_tui_client PRIVATE pthread)
+  find_package(Threads REQUIRED)
+
+  target_link_libraries(overflow_server PRIVATE Threads::Threads)
+  target_link_libraries(overflow_client PRIVATE Threads::Threads)
+  target_link_libraries(overflow_gui_client PRIVATE Threads::Threads)
+  target_link_libraries(overflow_tui_client PRIVATE Threads::Threads)
 endif()
 
 if(WIN32)

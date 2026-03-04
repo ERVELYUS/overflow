@@ -5,7 +5,7 @@
 
 namespace TuiDesign {
 ftxui::Element RenderMainLayout(ftxui::Element header_toggle,
-                                ftxui::Element settings_btn,
                                 const std::vector<std::string>& chat_history,
+                                const std::vector<std::string>& users_list,
                                 ftxui::Element input_field);
 }

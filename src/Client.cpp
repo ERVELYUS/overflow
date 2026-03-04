@@ -39,7 +39,7 @@ void Client::connect(const std::string& ip, const std::string& port) {
       }
       else {
         if (m_running) {
-          std::cout << "\n[System] Disconnected from server.\n";
+          // std::cout << "\n[System] Disconnected from server.\n";
           m_running = false;
         }
         break;
@@ -48,9 +48,6 @@ void Client::connect(const std::string& ip, const std::string& port) {
   });
 }
 
-// TODO
-// WARNING!!! Every std::cout have been commented out for the sake of TUI for
-// now
 void Client::handle_server_message(Packet& packet) {
   std::uint8_t id_raw{};
   packet >> id_raw;
@@ -117,8 +114,9 @@ void Client::handle_server_message(Packet& packet) {
       // std::cout << "[System] Name changed successfully.\n" << std::flush;
     }
     else {
-      // std::cout << "[System] Invalid nickname. Use 3-20 alphanumeric
-      // characters.\n" << std::flush;
+      // std::cout
+      //<< "[System] Invalid nickname. Use 3-20 alphanumeric characters.\n"
+      //<< std::flush;
     }
 
     // std::cout << "> " << std::flush;
@@ -130,8 +128,8 @@ void Client::handle_server_message(Packet& packet) {
       std::string channel_name;
       packet >> channel_name;
       m_current_channel = channel_name;
-      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
-                << std::flush;
+      // std::cout << "[System] Connected to channel #" << channel_name << ".\n"
+      //<< std::flush;
     }
     else {
       // std::cout << "Channel does not exist. Use /create to create it.\n"
@@ -175,11 +173,11 @@ void Client::run() {
     }
     else if (line.find("/join ") == 0) {
       if (!m_current_channel.empty()) {
-        /* std::cout << "[System] You are already connected to channel #"
-                  << m_current_channel
-                  << ". Type /leave before trying to join other channel.\n"
-                  << std::flush;
-        //std::cout << "> " << std::flush;*/
+        // std::cout << "[System] You are already connected to channel #"
+        //<< m_current_channel
+        //  << ". Type /leave before trying to join other channel.\n"
+        //<< std::flush;
+        // std::cout << "> " << std::flush;
         continue;
       }
       std::string channel_name = line.substr(6);
