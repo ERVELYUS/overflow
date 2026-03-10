@@ -32,6 +32,7 @@ target_link_libraries(overflow_server PRIVATE
 # CLI Client
 add_executable(overflow_client
     src/start_client.cpp
+    src/Console.cpp
     src/Client.cpp
 )
 
@@ -47,6 +48,7 @@ target_link_libraries(overflow_client PRIVATE
 # GUI Client
 add_executable(overflow_gui_client
     src/start_gui_client.cpp
+    src/Console.cpp
     src/Client.cpp
 )
 
@@ -66,6 +68,7 @@ add_executable(overflow_tui_client
     src/start_tui_client.cpp
     src/TuiApp.cpp
     src/tui/Layouts.cpp
+    src/Console.cpp
     src/Client.cpp
 )
 

@@ -68,11 +68,6 @@ bool Server::is_valid_channel_name(std::string_view channel_name) {
     return false;
   }
 
-  // Uniqueness check (made redundant by create_channel)
-  /* if (m_channels.find(std::string(channel_name)) != m_channels.end()) {
-    return false;
-  } */
-
   return true;
 }
 
@@ -95,10 +90,13 @@ Server::Server(const std::string& ip, const std::string& port) {
 void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
-  m_polls.add(user_socket, POLLIN);
+
   std::string default_nickname = "user_" + std::to_string(m_next_user_id++);
   m_users.emplace(fd, User(std::move(user_socket), default_nickname));
   m_nick_to_fd.emplace(default_nickname, fd);
+
+  m_polls.add(m_users.at(fd).get_socket(), POLLIN);
+
   std::cout << "[LOG] New user connected\n" << std::flush;
 }
 
@@ -257,8 +255,11 @@ void Server::process_command(User& user, const Packet& packet) {
     }
     case CommandID::LIST_USERS: {
       Packet users_list{};
-      users_list << static_cast<std::uint8_t>(CommandID::LIST_USERS)
-                 << static_cast<std::uint32_t>(m_users.size()) - 1;
+      std::uint32_t count = 0;
+      if (m_users.size() > 0) {
+        count = static_cast<std::uint32_t>(m_users.size() - 1);
+      }
+      users_list << static_cast<std::uint8_t>(CommandID::LIST_USERS) << count;
       for (const auto& [fd, online_user] : m_users) {
         if (user.get_name() == online_user.get_name()) {
           continue;
@@ -277,8 +278,7 @@ void Server::process_command(User& user, const Packet& packet) {
       create_result << static_cast<std::uint8_t>(CommandID::CREATE);
       ChannelCreateReturnValue result = create_channel(channel_name);
       if (result == ChannelCreateReturnValue::SUCCESS) {
-        std::string success_message =
-            "[System] Channel #" + channel_name + " created.\n";
+        std::string success_message = "Channel #" + channel_name + " created.";
         create_result << success_message;
         std::cout << "[LOG] User " << user.get_name() << " created a channel #"
                   << channel_name << '\n';

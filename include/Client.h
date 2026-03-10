@@ -13,6 +13,7 @@
 class Client {
   TcpSocket m_socket{};
   std::atomic<bool> m_running{};
+  std::atomic<bool> m_connected{false};
   std::thread m_recieve_thread{};
   std::function<void(std::shared_ptr<Message>)> m_message_handler;
 
