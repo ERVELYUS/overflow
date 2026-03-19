@@ -1,110 +1,63 @@
 #include "TuiApp.h"
 
 #include <ftxui/component/component.hpp>
-#include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <memory>
 
-#include "tui/Layouts.h"
+TuiApp::TuiApp()
+    : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
 
-using namespace ftxui;
-
-TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
-  MenuOption option = MenuOption::HorizontalAnimated();
-  m_tab_toggle = Menu(&m_tab_entries, &m_tab_selected, option);
-
-  m_input_field = Input(&m_input_buffer, "type here...");
-
-  m_input_field = CatchEvent(m_input_field, [this](Event event) {
-    if (event == Event::Return) {
-      if (!m_input_buffer.empty()) {
-        m_client.send_message(m_input_buffer);
-        m_input_buffer.clear();
-        return true;
-      }
-    }
-    return false;
-  });
-
-  m_main_container = Container::Vertical({
-      m_tab_toggle,
-      m_input_field,
-  });
-
-  m_main_container = CatchEvent(m_main_container, [this](Event event) {
-    if (event.is_character()) {
-      if (event.character() == "1") {
-        m_tab_selected = 0;
-        return true;
-      }
-      else if (event.character() == "2") {
-        m_tab_selected = 1;
-        return true;
-      }
-      else if (event.character() == "0") {
-        m_tab_selected = 2;
-        return true;
-      }
-    }
-    return false;
-  });
-
-  m_client.setup_message_handler(
-      [this](auto msg) { this->on_message_received(msg); });
-}
-
-TuiApp::~TuiApp() {
-  m_running = false;
-  if (m_network_thread.joinable()) {
-    m_network_thread.join();
-  }
-}
-
-void TuiApp::on_message_received(std::shared_ptr<Message> msg) {
-  // Lock because of multiple threads trying to access the same data
-  std::lock_guard<std::mutex> lock(m_chat_mutex);
-  if (auto user_msg = std::dynamic_pointer_cast<UserMessage>(msg)) {
-    m_chat_history.push_back(user_msg->m_name + ": " + user_msg->m_msg);
-  }
-  else if (auto list_msg = std::dynamic_pointer_cast<UsersList>(msg)) {
-    m_users_list.clear();
-
-    for (const auto& name : list_msg->m_users) {
-      m_users_list.push_back(name);
-    }
-  }
-  m_screen.PostEvent(Event::Custom);
-}
+      };
 
 void TuiApp::run() {
-  // StreamSilencer silence_cout(std::cout);
-  // StreamSilencer silence_cerr(std::cerr);
+  // Switcher between DMs, Channels and Settings (in the future)
+  int tab_selected = 0;  // Start on "Users"
+  std::vector<std::string> tab_entries = {" DMs ", " Channels ", " Settings "};
+  auto tab_header = Toggle(&tab_entries, &tab_selected);
 
-  m_network_thread = std::thread([this]() {
-    try {
-      m_client.connect("0.0.0.0", "8080");  // TODO: REMOVE HARDCODED
-    }
-    catch (...) { /* TODO: HANDLE ERRORS*/
-    }
+  // channels_list will be filled from server later
+  int channel_selected = 0;
+  std::vector<std::string> channels_list = {
+      "#general", "#development",  // Random list for tab switching test
+      "#random"};
+  auto channels_menu = Menu(&channels_list, &channel_selected);
+
+  // Input field
+  std::string input_buffer = "";
+  auto input_field = Input(&input_buffer, "type here...");
+
+  // The Tab Container holds the logic for switching views
+  auto tab_container = Container::Tab(
+      {
+          Renderer([&] { return vbox({text(" ONLINE USERS "), separator()}); }),
+          Renderer(channels_menu,
+                   [&] {
+                     return vbox({text(" AVAILABLE CHANNELS "), separator(),
+                                  channels_menu->Render(), filler(),
+                                  text("[ Press ENTER to Join ]") | center});
+                   }),
+          Renderer([&] { return vbox({text(" SETTINGS "), separator()}); }),
+      },
+      &tab_selected);
+
+  // Container::Vertical for tab management (feels wonky for now)
+  auto main_container = Container::Vertical({
+      tab_header,
+      tab_container,
+      input_field,
   });
 
-  m_poll_thread = std::thread([this]() {
-    while (m_running) {
-      std::this_thread::sleep_for(std::chrono::seconds(5));
-      try {
-        m_client.send_message("/users");
-      }
-      catch (...) {
-        // TODO: HANDLE ERRORS
-      }
-    }
+  auto main_renderer = Renderer(main_container, [&] {
+    auto content_window =
+        window(hbox({tab_header->Render(), filler()}),  // Tabs in the border
+               tab_container->Render() | flex  // Content takes all space
+               ) |
+        flex;
+
+    auto input_window =
+        window(text(""), input_field->Render()) | size(HEIGHT, EQUAL, 3);
+
+    return vbox({content_window, input_window});
   });
 
-  auto renderer = Renderer(m_main_container, [this] {
-    std::lock_guard<std::mutex> lock(m_chat_mutex);
-    return TuiDesign::RenderMainLayout(m_tab_toggle->Render(), m_chat_history,
-                                       m_users_list, m_input_field->Render());
-  });
-
-  m_screen.Loop(renderer);
+  m_screen.Loop(main_renderer);
 }

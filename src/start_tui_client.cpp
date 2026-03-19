@@ -1,6 +1,13 @@
+#include <iostream>
+
 #include "TuiApp.h"
 
 int main() {
-  TuiApp app;
-  app.run();
+  try {
+    TuiApp app;
+    app.run();
+  }
+  catch (std::exception& e) {
+    std::cerr << "Error: " << e.what() << '\n';
+  }
 }
