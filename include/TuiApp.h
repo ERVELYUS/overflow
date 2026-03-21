@@ -11,6 +11,13 @@ class TuiApp {
   void run();
 
  private:
+  enum class TabEntry : int {
+    DMs = 0,
+    Channels = 1,
+    Settings = 2,
+  };
+  static int to_index(TabEntry tab);
+
   bool m_running{false};
   ScreenInteractive m_screen;
 };

@@ -8,9 +8,11 @@ TuiApp::TuiApp()
 
       };
 
+int TuiApp::to_index(TabEntry tab) { return static_cast<int>(tab); }
+
 void TuiApp::run() {
   // Switcher between DMs, Channels and Settings (in the future)
-  int tab_selected = 0;  // Start on "Users"
+  int tab_selected = to_index(TabEntry::DMs);
   std::vector<std::string> tab_entries = {" DMs ", " Channels ", " Settings "};
   auto tab_header = Renderer([&] {
     std::vector<Element> tabs;
@@ -62,17 +64,17 @@ void TuiApp::run() {
 
   auto event_handler = CatchEvent(main_container, [&](Event event) {
     if (event == Event::F1) {  // DMs tab
-      tab_selected = 0;
+      tab_selected = to_index(TabEntry::DMs);
       tab_header->TakeFocus();
       return true;
     }
     if (event == Event::F2) {  // Channels tab
-      tab_selected = 1;
+      tab_selected = to_index(TabEntry::Channels);
       tab_header->TakeFocus();
       return true;
     }
     if (event == Event::F12) {  // Settings tab
-      tab_selected = 2;
+      tab_selected = to_index(TabEntry::Settings);
       tab_header->TakeFocus();
       return true;
     }
