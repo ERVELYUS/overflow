@@ -12,7 +12,21 @@ void TuiApp::run() {
   // Switcher between DMs, Channels and Settings (in the future)
   int tab_selected = 0;  // Start on "Users"
   std::vector<std::string> tab_entries = {" DMs ", " Channels ", " Settings "};
-  auto tab_header = Toggle(&tab_entries, &tab_selected);
+  auto tab_header = Renderer([&] {
+    std::vector<Element> tabs;
+
+    for (int i = 0; i < tab_entries.size(); ++i) {
+      auto tab = text(tab_entries[i]);
+
+      if (i == tab_selected) {
+        tab = tab | inverted | bold;
+      }
+
+      tabs.push_back(tab);
+    }
+
+    return hbox(std::move(tabs));
+  });
 
   // channels_list will be filled from server later
   int channel_selected = 0;
@@ -46,17 +60,36 @@ void TuiApp::run() {
       input_field,
   });
 
-  auto main_renderer = Renderer(main_container, [&] {
-    auto content_window =
-        window(hbox({tab_header->Render(), filler()}),  // Tabs in the border
-               tab_container->Render() | flex  // Content takes all space
-               ) |
-        flex;
+  auto event_handler = CatchEvent(main_container, [&](Event event) {
+    if (event == Event::F1) {  // DMs tab
+      tab_selected = 0;
+      tab_header->TakeFocus();
+      return true;
+    }
+    if (event == Event::F2) {  // Channels tab
+      tab_selected = 1;
+      tab_header->TakeFocus();
+      return true;
+    }
+    if (event == Event::F12) {  // Settings tab
+      tab_selected = 2;
+      tab_header->TakeFocus();
+      return true;
+    }
 
-    auto input_window =
-        window(text(""), input_field->Render()) | size(HEIGHT, EQUAL, 3);
+    if (event == Event::CtrlQ) {
+      m_screen.Exit();
+      return true;
+    }
+    return false;
+  });
 
-    return vbox({content_window, input_window});
+  auto main_renderer = Renderer(event_handler, [&] {
+    return vbox(
+        {window(hbox({tab_header->Render(), filler()}),
+                tab_container->Render() | flex) |
+             flex,
+         window(text(""), input_field->Render()) | size(HEIGHT, EQUAL, 3)});
   });
 
   m_screen.Loop(main_renderer);
