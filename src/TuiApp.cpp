@@ -40,18 +40,26 @@ void TuiApp::run() {
   // Input field
   std::string input_buffer = "";
   auto input_field = Input(&input_buffer, "type here...");
+  bool in_chat = false;
+
+  auto dms_view =
+      Renderer([&] { return vbox({text(" ONLINE USERS "), separator()}); });
+
+  auto channels_view = Renderer(channels_menu, [&] {
+    return vbox({text(" AVAILABLE CHANNELS "), separator(),
+                 channels_menu->Render(), filler(),
+                 text("[ Press ENTER to Join ]") | center});
+  });
+
+  auto settings_view =
+      Renderer([&] { return vbox({text(" SETTINGS "), separator()}); });
 
   // The Tab Container holds the logic for switching views
   auto tab_container = Container::Tab(
       {
-          Renderer([&] { return vbox({text(" ONLINE USERS "), separator()}); }),
-          Renderer(channels_menu,
-                   [&] {
-                     return vbox({text(" AVAILABLE CHANNELS "), separator(),
-                                  channels_menu->Render(), filler(),
-                                  text("[ Press ENTER to Join ]") | center});
-                   }),
-          Renderer([&] { return vbox({text(" SETTINGS "), separator()}); }),
+          dms_view,
+          channels_view,
+          settings_view,
       },
       &tab_selected);
 
@@ -87,11 +95,19 @@ void TuiApp::run() {
   });
 
   auto main_renderer = Renderer(event_handler, [&] {
-    return vbox(
-        {window(hbox({tab_header->Render(), filler()}),
-                tab_container->Render() | flex) |
-             flex,
-         window(text(""), input_field->Render()) | size(HEIGHT, EQUAL, 3)});
+    Element input_section;
+    if (in_chat) {
+      input_section =
+          window(text(""), input_field->Render()) | size(HEIGHT, EQUAL, 3);
+    }
+    else {
+      input_section = text("");
+    }
+
+    return vbox({window(hbox({tab_header->Render(), filler()}),
+                        tab_container->Render() | flex) |
+                     flex,
+                 input_section});
   });
 
   m_screen.Loop(main_renderer);
