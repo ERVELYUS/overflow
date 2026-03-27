@@ -16,7 +16,7 @@ class TuiApp {
     Channels = 1,
     Settings = 2,
   };
-  static int to_index(TabEntry tab);
+  static int to_index(TabEntry tab) noexcept { return static_cast<int>(tab); };
 
   bool m_running{false};
   ScreenInteractive m_screen;
