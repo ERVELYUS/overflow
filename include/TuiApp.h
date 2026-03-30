@@ -11,6 +11,12 @@ class TuiApp {
   void run();
 
  private:
+  enum class ChatKind {
+    None,
+    DM,
+    Channel,
+  };
+
   enum class TabEntry : int {
     DMs = 0,
     Channels = 1,
