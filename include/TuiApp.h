@@ -11,6 +11,7 @@ class TuiApp {
   void run();
 
  private:
+  // Enums and how they work
   enum class ChatKind { None, DM, Channel };
   enum class TabEntry : int { DMs = 0, Channels = 1, Settings = 2 };
   enum class ChannelMode : int { List = 0, Chat = 1 };
@@ -19,6 +20,7 @@ class TuiApp {
     return static_cast<int>(mode);
   };
 
+  // Components and elements
   Component MakeTabHeader();
   Component MakeSectionView(std::string title);
   Component MakeChannelsWorkspace();
@@ -28,7 +30,9 @@ class TuiApp {
 
   bool m_running{false};
   ScreenInteractive m_screen;
+  std::string m_nickname{"Me"};
 
+  // Internal state
   int m_tab_selected{to_index(TabEntry::DMs)};
   const std::vector<std::string> m_tab_entries{" DMs ", " Channels ",
                                                " Settings "};

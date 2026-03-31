@@ -3,10 +3,17 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
-TuiApp::TuiApp()
-    : m_running(true),
-      m_screen(ScreenInteractive::Fullscreen()),
-      m_input_field(Input(&m_input_buffer, "type here...")) {};
+TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
+  auto input_base = Input(&m_input_buffer, "type here...");
+  m_input_field = CatchEvent(input_base, [this](Event event) {
+    if (event == Event::Return && !m_input_buffer.empty()) {
+      m_dummy_msgs.push_back(m_nickname + ": " + m_input_buffer);
+      m_input_buffer.clear();
+      return true;
+    }
+    return false;
+  });
+};
 
 // A dud to later use for DMs and Settings
 Component TuiApp::MakeSectionView(std::string title) {
@@ -41,7 +48,17 @@ Component TuiApp::MakeChatView(const std::string& title,
   return Renderer([this, title] {
     std::vector<Element> lines;
     for (auto const& msg : m_dummy_msgs) {
-      lines.push_back(text(msg));
+      std::string nickname = msg.substr(0, msg.find(":"));
+      Element colored_nickname = text(msg.substr(0, msg.find(":")));
+      if (nickname == m_nickname) {
+        colored_nickname |= color(Color::Red);
+      }
+      else {
+        colored_nickname |= color(Color::Blue);
+      }
+      Element message = text(msg.substr(msg.find(":")));
+
+      lines.push_back(hbox({colored_nickname, message}));
     }
 
     std::string display_title = title;
