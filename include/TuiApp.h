@@ -3,6 +3,9 @@
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 
+#include "Client.h"
+#include "Message.h"
+
 using namespace ftxui;
 
 class TuiApp {
@@ -11,6 +14,9 @@ class TuiApp {
   void run();
 
  private:
+  Client m_client;
+  void HandleIncomingMessage(std::shared_ptr<Message> msg);
+
   // Enums and how they work
   enum class TabEntry : int { DMs = 0, Channels = 1, Settings = 2 };
   enum class ViewMode : int { List = 0, Chat = 1 };

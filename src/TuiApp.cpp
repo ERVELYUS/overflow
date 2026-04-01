@@ -4,8 +4,14 @@
 #include <ftxui/dom/elements.hpp>
 
 TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
-  m_channels_state.items = {"#general", "#dev", "#random"};
-  m_dms_state.items = {"@John_Doe", "@Jane_Doe", "@Pablo"};
+  m_channels_state.items.clear();
+  m_dms_state.items.clear();
+  m_dummy_msgs.clear();
+
+  m_client.setup_message_handler([this](std::shared_ptr<Message> msg) {
+    HandleIncomingMessage(msg);
+    m_screen.PostEvent(Event::Custom);
+  });
 
   auto input_base = Input(&m_input_buffer, "type here...");
   m_input_field = CatchEvent(input_base, [this](Event event) {
@@ -101,15 +107,7 @@ Component TuiApp::MakeWorkspace(std::string menu_title, WorkspaceState& state) {
 
   auto router = Container::Tab({list_view, chat_view}, &state.mode);
 
-  return CatchEvent(router, [this, menu, &state](Event event) {
-    if (state.mode == to_index(ViewMode::Chat) && event == Event::Escape) {
-      state.mode = to_index(ViewMode::List);
-      m_in_chat = false;
-      menu->TakeFocus();
-      return true;
-    }
-    return false;
-  });
+  return router;
 };
 
 // How does input field look and when it's shown
@@ -137,6 +135,19 @@ void TuiApp::run() {
   });
 
   auto event_handler = CatchEvent(main_container, [&](Event event) {
+    if (event == Event::Escape && m_in_chat) {
+      m_in_chat = false;
+
+      if (m_tab_selected == to_index(TabEntry::DMs)) {
+        m_dms_state.mode = to_index(ViewMode::List);
+      }
+      else if (m_tab_selected == to_index(TabEntry::Channels)) {
+        m_channels_state.mode = to_index(ViewMode::List);
+      }
+
+      tab_container->TakeFocus();
+      return true;
+    }
     if (event == Event::F1) {
       m_tab_selected = to_index(TabEntry::DMs);
       tab_header->TakeFocus();
