@@ -140,6 +140,11 @@ void Client::handle_server_message(Packet& packet) {
     bool successful{};
     packet >> successful;
     if (successful) {
+      std::string confirmed_name;
+      packet >> confirmed_name;
+      m_nickname = confirmed_name;
+      auto msg = std::make_shared<SelfNameMessage>(confirmed_name);
+      if (m_message_handler) m_message_handler(msg);
       Console::print(ConsoleLevel::System, "Name changed successfully.");
     }
     else {
@@ -199,7 +204,6 @@ void Client::run() {
     if (line.find("/nick ") == 0) {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
-      m_nickname = new_name;
     }
     else if (line.find("/join ") == 0) {
       if (!m_current_channel.empty()) {
@@ -290,11 +294,14 @@ void Client::send_message(const std::string& line) {
   if (line.find("/nick ") == 0) {
     std::string new_name = line.substr(6);
     p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
-    m_nickname = new_name;
   }
   else if (line.find("/join ") == 0) {
     std::string channel_name = line.substr(6);
     p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
+  }
+  else if (line.find("/create ") == 0) {
+    std::string channel_name = line.substr(8);
+    p << static_cast<std::uint8_t>(CommandID::CREATE) << channel_name;
   }
   else if (line.find("/channels") == 0) {
     p << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS);

@@ -5,11 +5,14 @@
 #include <memory>
 
 #include "Message.h"
+#include "Protocol.h"
 
 TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
   m_channels_state.items.clear();
   m_dms_state.items.clear();
   m_dummy_msgs.clear();
+
+  m_modal_input_field = Input(&m_new_channel_input, "New channel name...");
 
   m_client.setup_message_handler([this](std::shared_ptr<Message> msg) {
     HandleIncomingMessage(msg);
@@ -17,6 +20,7 @@ TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
   });
 
   auto input_base = Input(&m_input_buffer, "type here...");
+
   m_input_field = CatchEvent(input_base, [this](Event event) {
     if (event == Event::Return && !m_input_buffer.empty()) {
       m_client.send_message(m_input_buffer);
@@ -151,6 +155,58 @@ Component TuiApp::MakeWorkspace(std::string menu_title, WorkspaceState& state) {
   return router;
 };
 
+Component TuiApp::MakeCreateChannelModal() {
+  auto on_create = [this] {
+    if (!m_new_channel_input.empty()) {
+      m_client.send_message("/create " + m_new_channel_input);
+      m_new_channel_input.clear();
+      m_modal_layer = 0;
+    }
+  };
+
+  auto specialized_input =
+      CatchEvent(m_modal_input_field, [this, on_create](Event event) {
+        if (event == Event::Return) {
+          on_create();
+          return true;
+        }
+
+        if (event.is_character()) {
+          char c = event.character()[0];
+          if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+            return true;
+          }
+        }
+        return false;
+      });
+
+  auto buttons = Container::Horizontal({
+                     Button("Create", on_create),
+                     Button("Cancel",
+                            [this] {
+                              m_new_channel_input.clear();
+                              m_modal_layer = 0;
+                            }),
+                 }) |
+                 center;
+
+  auto component = Container::Vertical({
+      specialized_input,
+      buttons,
+  });
+
+  return Renderer(component, [component] {
+    return vbox({
+               text(" Create New Channel ") | bold | center,
+               separator(),
+               component->Render(),
+               filler(),
+               text("3-20 alphanumeric characters") | dim | center,
+           }) |
+           border | size(WIDTH, EQUAL, 40) | size(HEIGHT, EQUAL, 10) | center;
+  });
+}
+
 // How does input field look and when it's shown
 Element TuiApp::MakeInputSection() {
   if (!m_in_chat) {
@@ -175,18 +231,37 @@ void TuiApp::run() {
       m_input_field,
   });
 
-  auto event_handler = CatchEvent(main_container, [&](Event event) {
-    if (event == Event::Escape && m_in_chat) {
-      m_in_chat = false;
+  auto modal_container = MakeCreateChannelModal();
+  auto root_container =
+      Container::Tab({main_container, modal_container}, &m_modal_layer);
 
-      if (m_tab_selected == to_index(TabEntry::DMs)) {
-        m_dms_state.mode = to_index(ViewMode::List);
+  auto event_handler = CatchEvent(root_container, [&](Event event) {
+    if (event == Event::Escape) {
+      // Prioritize closing the modal if it's open
+      if (m_modal_layer == 1) {
+        m_modal_layer = 0;
+        return true;
       }
-      else if (m_tab_selected == to_index(TabEntry::Channels)) {
-        m_channels_state.mode = to_index(ViewMode::List);
+      // Otherwise, handle backing out of chat
+      if (m_in_chat) {
+        m_in_chat = false;
+        if (m_tab_selected == to_index(TabEntry::DMs)) {
+          m_dms_state.mode = to_index(ViewMode::List);
+        }
+        else if (m_tab_selected == to_index(TabEntry::Channels)) {
+          m_channels_state.mode = to_index(ViewMode::List);
+        }
+        tab_container->TakeFocus();
+        return true;
       }
+    }
 
-      tab_container->TakeFocus();
+    // Press 'n' to open modal
+    if (event == Event::Character('n') &&
+        m_tab_selected == to_index(TabEntry::Channels) &&
+        m_channels_state.mode == to_index(ViewMode::List) &&
+        m_modal_layer == 0) {
+      m_modal_layer = 1;
       return true;
     }
     if (event == Event::F1) {
@@ -214,14 +289,20 @@ void TuiApp::run() {
 
   m_client.connect("0.0.0.0", "8080");
 
-  auto main_renderer =
-      Renderer(event_handler, [this, tab_header, tab_container] {
-        return vbox({
+  auto main_renderer = Renderer(
+      event_handler, [this, tab_header, tab_container, modal_container] {
+        auto base_ui = vbox({
             window(hbox({tab_header->Render(), filler()}),
                    tab_container->Render() | flex) |
                 flex,
             MakeInputSection(),
         });
+
+        if (m_modal_layer == 1) {
+          return dbox({base_ui, modal_container->Render() | center});
+        }
+
+        return base_ui;
       });
 
   m_screen.Loop(main_renderer);

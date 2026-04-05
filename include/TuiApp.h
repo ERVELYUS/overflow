@@ -41,7 +41,13 @@ class TuiApp {
 
   bool m_running{false};
   ScreenInteractive m_screen;
-  std::string m_nickname{"Me"};
+  std::string m_nickname{""};
+
+  // Channel creation
+  int m_modal_layer = 0;
+  std::string m_new_channel_input;
+  Component m_modal_input_field;
+  Component MakeCreateChannelModal();
 
   // Internal state
   int m_tab_selected{to_index(TabEntry::DMs)};
