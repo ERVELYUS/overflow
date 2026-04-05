@@ -16,13 +16,34 @@ TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
   auto input_base = Input(&m_input_buffer, "type here...");
   m_input_field = CatchEvent(input_base, [this](Event event) {
     if (event == Event::Return && !m_input_buffer.empty()) {
+      m_client.send_message(m_input_buffer);
+
       m_dummy_msgs.push_back(m_nickname + ": " + m_input_buffer);
+
       m_input_buffer.clear();
       return true;
     }
     return false;
   });
 };
+
+void TuiApp::HandleIncomingMessage(std::shared_ptr<Message> msg) {
+  if (auto userMsg = std::dynamic_pointer_cast<UserMessage>(msg)) {
+    m_dummy_msgs.push_back(userMsg->m_name + ": " + userMsg->m_msg);
+  }
+  else if (auto usersList = std::dynamic_pointer_cast<UsersList>(msg)) {
+    m_dms_state.items.clear();
+    for (const auto& user : usersList->m_users) {
+      m_dms_state.items.push_back("@" + user);
+    }
+  }
+  else if (auto channelsList = std::dynamic_pointer_cast<ChannelsList>(msg)) {
+    m_channels_state.items.clear();
+    for (const auto& chan : channelsList->m_channels) {
+      m_channels_state.items.push_back("#" + chan);
+    }
+  }
+}
 
 // A dud to later use for DMs and Settings
 Component TuiApp::MakeSectionView(std::string title) {
@@ -83,6 +104,15 @@ Component TuiApp::MakeChatView(const WorkspaceState& state) {
 }
 
 Component TuiApp::MakeWorkspace(std::string menu_title, WorkspaceState& state) {
+  if (!state.items.empty()) {
+    if (state.selected_item >= state.items.size()) {
+      state.selected_item = state.items.size() - 1;
+    }
+  }
+  else {
+    state.selected_item = 0;
+  }
+
   // What to do when chat is selected
   MenuOption option;
   option.on_enter = [this, &state] {
@@ -155,6 +185,7 @@ void TuiApp::run() {
     }
     if (event == Event::F2) {
       m_tab_selected = to_index(TabEntry::Channels);
+      m_client.send_message("/channels");
       tab_header->TakeFocus();
       return true;
     }
@@ -169,6 +200,8 @@ void TuiApp::run() {
     }
     return false;
   });
+
+  m_client.connect("0.0.0.0", "8080");
 
   auto main_renderer =
       Renderer(event_handler, [this, tab_header, tab_container] {

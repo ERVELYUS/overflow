@@ -282,6 +282,16 @@ void Server::process_command(User& user, const Packet& packet) {
         create_result << success_message;
         std::cout << "[LOG] User " << user.get_name() << " created a channel #"
                   << channel_name << '\n';
+
+        Packet update_packet;
+        update_packet << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS)
+                      << static_cast<std::uint32_t>(m_channels.size());
+        for (auto const& [name, chan] : m_channels) {
+          update_packet << name;
+        }
+        for (auto& [fd, user] : m_users) {
+          user.send(update_packet);
+        }
       }
       else {
         std::string error_message;
