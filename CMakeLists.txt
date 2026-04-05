@@ -5,10 +5,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Disabling stuff inside SQLiteCpp
+set(SQLITECPP_RUN_CPPLINT OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_RUN_CPPCHECK OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
 # Subprojects / External libs
 add_subdirectory(libs/cppcon)
 add_subdirectory(libs/ftxui)
 add_subdirectory(libs/guiHelper)
+add_subdirectory(libs/SQLiteCpp)
 
 set(CPPCON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/cppcon/include")
 
@@ -18,15 +25,19 @@ add_executable(overflow_server
     src/User.cpp
     src/Server.cpp
     src/Channel.cpp
+    src/Database.cpp
 )
 
 target_include_directories(overflow_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/SQLiteCpp/include
 )
 
 target_link_libraries(overflow_server PRIVATE
     cppcon
+    SQLiteCpp
+    sqlite3
 )
 
 # CLI Client
@@ -67,7 +78,6 @@ target_link_libraries(overflow_gui_client PRIVATE
 add_executable(overflow_tui_client
     src/start_tui_client.cpp
     src/TuiApp.cpp
-    src/tui/Layouts.cpp
     src/Console.cpp
     src/Client.cpp
 )

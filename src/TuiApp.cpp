@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "Message.h"
-#include "Protocol.h"
 
 TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
   m_channels_state.items.clear();
