@@ -87,6 +87,21 @@ Server::Server(const std::string& ip, const std::string& port) {
   m_running = true;
 }
 
+void Server::broadcast_users_list() {
+  Packet users_packet;
+  users_packet << static_cast<std::uint8_t>(CommandID::LIST_USERS)
+               << static_cast<std::uint8_t>(UpdateType::BackgroundPush)
+               << static_cast<std::uint32_t>(m_users.size());
+
+  for (const auto& [fd, user] : m_users) {
+    users_packet << std::string(user.get_name());
+  }
+
+  for (auto& [fd, user] : m_users) {
+    user.send(users_packet);
+  }
+}
+
 void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
@@ -98,6 +113,13 @@ void Server::handle_new_connection() {
   m_polls.add(m_users.at(fd).get_socket(), POLLIN);
 
   std::cout << "[LOG] New user connected\n" << std::flush;
+
+  Packet identity_packet;
+  identity_packet << static_cast<std::uint8_t>(CommandID::SET_SELF_NAME)
+                  << default_nickname;
+  m_users.at(fd).send(identity_packet);
+
+  broadcast_users_list();
 }
 
 void Server::handle_client_message(socket_t user_fd) {
@@ -139,6 +161,8 @@ void Server::process_command(User& user, const Packet& packet) {
         m_nick_to_fd.emplace(new_name, user.get_socket().get_fd());
 
         user.set_name(new_name);
+
+        broadcast_users_list();
       }
       else {
         nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME)
@@ -242,6 +266,7 @@ void Server::process_command(User& user, const Packet& packet) {
     case CommandID::LIST_CHANNELS: {
       Packet channels_list{};
       channels_list << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS)
+                    << static_cast<std::uint8_t>(UpdateType::ManualRequest)
                     << static_cast<std::uint32_t>(m_channels.size());
       for (auto channel : m_channels) {
         channels_list << channel.first;
@@ -259,7 +284,9 @@ void Server::process_command(User& user, const Packet& packet) {
       if (m_users.size() > 0) {
         count = static_cast<std::uint32_t>(m_users.size() - 1);
       }
-      users_list << static_cast<std::uint8_t>(CommandID::LIST_USERS) << count;
+      users_list << static_cast<std::uint8_t>(CommandID::LIST_USERS)
+                 << static_cast<std::uint8_t>(UpdateType::ManualRequest)
+                 << count;
       for (const auto& [fd, online_user] : m_users) {
         if (user.get_name() == online_user.get_name()) {
           continue;
@@ -285,6 +312,7 @@ void Server::process_command(User& user, const Packet& packet) {
 
         Packet update_packet;
         update_packet << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS)
+                      << static_cast<std::uint8_t>(UpdateType::BackgroundPush)
                       << static_cast<std::uint32_t>(m_channels.size());
         for (auto const& [name, chan] : m_channels) {
           update_packet << name;
@@ -337,6 +365,8 @@ void Server::disconnect_user(socket_t user_fd) {
   m_users.erase(it);
 
   std::cout << "[LOG] Socket " << user_fd << " disconnected and cleaned up\n";
+
+  broadcast_users_list();
 }
 
 Channel* Server::find_channel(std::string_view name) {

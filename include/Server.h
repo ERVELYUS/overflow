@@ -34,6 +34,7 @@ class Server {
   void run();
 
   void handle_new_connection();
+  void broadcast_users_list();
   void handle_client_message(socket_t user_fd);
 
   void process_command(User& user, const Packet& packet);

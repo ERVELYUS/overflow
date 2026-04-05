@@ -67,8 +67,24 @@ void Client::handle_server_message(Packet& packet) {
     Console::print(ConsoleLevel::Info, "[" + sender + "] " + content);
     Console::print(ConsoleLevel::Prompt, "> ");
   }
+  else if (id == CommandID::SET_SELF_NAME) {
+    std::string new_name{};
+    packet >> new_name;
+
+    m_nickname = new_name;
+    auto msg = std::make_shared<SelfNameMessage>(new_name);
+    if (m_message_handler) {
+      m_message_handler(msg);
+    }
+  }
   else if (id == CommandID::LIST_CHANNELS) {
-    Console::print(ConsoleLevel::System, "List of all available channels:");
+    std::uint8_t update_raw{};
+    packet >> update_raw;
+    UpdateType type = static_cast<UpdateType>(update_raw);
+
+    if (type == UpdateType::ManualRequest) {
+      Console::print(ConsoleLevel::System, "List of all available channels:");
+    }
 
     std::uint32_t channels_count{};
     packet >> channels_count;
@@ -80,17 +96,26 @@ void Client::handle_server_message(Packet& packet) {
     for (std::uint32_t i = 0; i < channels_count; ++i) {
       packet >> channel_name;
       channelNames << channel_name;
-      Console::print(ConsoleLevel::Info, "#" + channel_name);
+      if (type == UpdateType::ManualRequest) {
+        Console::print(ConsoleLevel::Info, "#" + channel_name);
+      }
     }
 
     auto message = std::make_shared<ChannelsList>(channelNames);
     if (m_message_handler) m_message_handler(message);
 
-    Console::print(ConsoleLevel::Prompt, "> ");
+    if (type == UpdateType::ManualRequest) {
+      Console::print(ConsoleLevel::Prompt, "> ");
+    }
   }
   else if (id == CommandID::LIST_USERS) {
-    Console::print(ConsoleLevel::System, "List of all available users:");
+    std::uint8_t update_raw{};
+    packet >> update_raw;
+    UpdateType type = static_cast<UpdateType>(update_raw);
 
+    if (type == UpdateType::ManualRequest) {
+      Console::print(ConsoleLevel::System, "List of all available users:");
+    }
     std::uint32_t users_count{};
     packet >> users_count;
 
@@ -100,12 +125,16 @@ void Client::handle_server_message(Packet& packet) {
     for (std::uint32_t i = 0; i < users_count; ++i) {
       packet >> user_name;
       usernames << user_name;
-      Console::print(ConsoleLevel::Info, "@" + user_name);
+      if (type == UpdateType::ManualRequest) {
+        Console::print(ConsoleLevel::Info, "@" + user_name);
+      }
     }
     auto message = std::make_shared<UsersList>(usernames);
     if (m_message_handler) m_message_handler(message);
 
-    Console::print(ConsoleLevel::Prompt, "> ");
+    if (type == UpdateType::ManualRequest) {
+      Console::print(ConsoleLevel::Prompt, "> ");
+    }
   }
   else if (id == CommandID::NICKNAME) {
     bool successful{};

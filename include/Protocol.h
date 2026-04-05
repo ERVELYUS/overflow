@@ -12,5 +12,11 @@ enum class CommandID : std::uint8_t {
   LIST_USERS = 6,
   CREATE = 7,
   PRIVATE_MSG = 8,
-  ERROR = 9
+  SET_SELF_NAME = 9,
+  ERROR = 10
+};
+
+enum class UpdateType : std::uint8_t {
+  ManualRequest = 0,
+  BackgroundPush = 1,
 };

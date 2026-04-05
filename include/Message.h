@@ -3,7 +3,6 @@
 #include <list>
 #include <string>
 
-
 struct Message {
   virtual ~Message() = default;  // RTTI
 };
@@ -23,4 +22,9 @@ struct UsersList : public Message {
 struct ChannelsList : public Message {
   void operator<<(const std::string& name) { m_channels.push_back(name); }
   std::list<std::string> m_channels;
+};
+
+struct SelfNameMessage : public Message {
+  SelfNameMessage(const std::string& name) : m_name(name) {}
+  std::string m_name;
 };

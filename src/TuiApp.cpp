@@ -2,6 +2,9 @@
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <memory>
+
+#include "Message.h"
 
 TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
   m_channels_state.items.clear();
@@ -34,6 +37,11 @@ void TuiApp::HandleIncomingMessage(std::shared_ptr<Message> msg) {
   else if (auto usersList = std::dynamic_pointer_cast<UsersList>(msg)) {
     m_dms_state.items.clear();
     for (const auto& user : usersList->m_users) {
+      // Exclude self from the list
+      if (user == m_nickname) {
+        continue;
+      }
+
       m_dms_state.items.push_back("@" + user);
     }
   }
@@ -42,6 +50,9 @@ void TuiApp::HandleIncomingMessage(std::shared_ptr<Message> msg) {
     for (const auto& chan : channelsList->m_channels) {
       m_channels_state.items.push_back("#" + chan);
     }
+  }
+  else if (auto selfMsg = std::dynamic_pointer_cast<SelfNameMessage>(msg)) {
+    this->m_nickname = selfMsg->m_name;
   }
 }
 
