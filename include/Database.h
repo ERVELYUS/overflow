@@ -43,10 +43,9 @@ class Database {
   std::optional<std::string> get_username(int user_id);
 
   // Channels/DMs
-  int create_channel(const std::string& name,
-                     ChannelType type = ChannelType::Public);
+  int get_or_create_channel(const std::string& name);
+  int get_or_create_dm(int user1_id, int user2_id);
   std::vector<ChannelRecord> get_all_public_channels();
-  std::optional<int> get_dm_channel(int user1_id, int user2_id);
   void add_user_to_channel(int channel_id, int user_id);
 
   // Messages

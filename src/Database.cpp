@@ -63,6 +63,8 @@ void Database::initialize_schema() {
     m_db.exec(
         "CREATE INDEX IF NOT EXISTS idx_channel_members_user_id ON "
         "channel_members (user_id);");
+
+    std::cout << "[Database] Foundation tables initialized.\n";
   }
   catch (std::exception& e) {
     std::cerr << "[Database] Error initializing schema: " << e.what() << "\n";
@@ -79,10 +81,11 @@ int Database::get_or_create_user(const std::string& username) {
 
   // Race condition protection
   try {
-    SQLite::Statement insert(m_db, "INSERT INTO users (username) VALUES (?)");
-    insert.bind(1, username);
-    insert.executeStep();
-    return (int)m_db.getLastInsertRowid();
+    SQLite::Statement insert_query(m_db,
+                                   "INSERT INTO users (username) VALUES (?)");
+    insert_query.bind(1, username);
+    insert_query.exec();
+    return static_cast<int>(m_db.getLastInsertRowid());
   }
   catch (std::exception& e) {
     query.reset();
@@ -93,3 +96,75 @@ int Database::get_or_create_user(const std::string& username) {
     throw;
   }
 };
+
+int Database::get_or_create_channel(const std::string& name) {
+  SQLite::Statement lookup_query(
+      m_db, "SELECT id FROM channels WHERE name = ? AND type = 0");
+  lookup_query.bind(1, name);
+
+  if (lookup_query.executeStep()) {
+    return lookup_query.getColumn(0).getInt();
+  }
+
+  // Race condition protection
+  try {
+    SQLite::Statement insert_query(
+        m_db, "INSERT INTO channels (name, type) VALUES (?, ?)");
+    insert_query.bind(1, name);
+    insert_query.bind(2, 0);
+    insert_query.exec();
+    return static_cast<int>(m_db.getLastInsertRowid());
+  }
+  catch (std::exception& e) {
+    lookup_query.reset();
+    lookup_query.bind(1, name);
+    if (lookup_query.executeStep()) {
+      return lookup_query.getColumn(0).getInt();
+    }
+    throw;
+  }
+};
+
+int Database::get_or_create_dm(int user1_id, int user2_id) {
+  SQLite::Statement lookup_query(
+      m_db,
+      "SELECT channel_id FROM channel_members WHERE user_id IN (?, ?) GROUP BY "
+      "channel_id HAVING COUNT(user_id) = 2;");
+  lookup_query.bind(1, user1_id);
+  lookup_query.bind(2, user2_id);
+
+  if (lookup_query.executeStep()) {
+    return lookup_query.getColumn(0).getInt();
+  }
+
+  // Race condition protection
+  try {
+    SQLite::Statement insert_channel_query(
+        m_db, "INSERT INTO channels (name, type) VALUES (NULL, 1)");
+    insert_channel_query.exec();
+    int created_channel_id = static_cast<int>(m_db.getLastInsertRowid());
+
+    add_user_to_channel(created_channel_id, user1_id);
+    add_user_to_channel(created_channel_id, user2_id);
+
+    return created_channel_id;
+  }
+  catch (std::exception& e) {
+    lookup_query.reset();
+    lookup_query.bind(1, user1_id);
+    lookup_query.bind(2, user2_id);
+    if (lookup_query.executeStep()) {
+      return lookup_query.getColumn(0).getInt();
+    }
+    throw;
+  }
+}
+
+void Database::add_user_to_channel(int channel_id, int user_id) {
+  SQLite::Statement query(m_db,
+                          "INSERT OR IGNORE INTO channel_members (channel_id, "
+                          "user_id) VALUES (?, ?)");
+  query.bind(1, channel_id);
+  query.bind(2, user_id);
+  query.exec();
+}
