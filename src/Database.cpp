@@ -1,5 +1,6 @@
 #include "Database.h"
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
 
@@ -168,3 +169,47 @@ void Database::add_user_to_channel(int channel_id, int user_id) {
   query.bind(2, user_id);
   query.exec();
 }
+
+// TODO: add something other than std::string
+void Database::save_message(int channel_id, int sender_id,
+                            const std::string& content) {
+  SQLite::Statement query(
+      m_db,
+      "INSERT INTO messages (channel_id, sender_id, content) VALUES (?, ?, ?)");
+  query.bind(1, channel_id);
+  query.bind(2, sender_id);
+  query.bind(3, content);
+  query.exec();
+}
+
+std::vector<MessageRecord> Database::get_recent_messages(int channel_id,
+                                                         int limit) {
+  std::vector<MessageRecord> messages;
+
+  SQLite::Statement query(m_db, R"(
+    SELECT m.id, m.channel_id, m.sender_id, u.username, m.content, m.timestamp
+    FROM messages m
+    JOIN users u ON m.sender_id = u.id
+    WHERE m.channel_id = ?
+    ORDER BY m.timestamp DESC
+    LIMIT ?
+  )");
+  query.bind(1, channel_id);
+  query.bind(2, limit);
+
+  while (query.executeStep()) {
+    MessageRecord msg;
+    msg.id = query.getColumn(0).getInt();
+    msg.channel_id = query.getColumn(1).getInt();
+    msg.sender_id = query.getColumn(2).getInt();
+    msg.sender_name = query.getColumn(3).getInt();
+    msg.content = query.getColumn(4).getInt();
+    msg.timestamp = query.getColumn(5).getInt();
+
+    messages.push_back(msg);
+  }
+
+  std::reverse(messages.begin(), messages.end());
+
+  return messages;
+};
