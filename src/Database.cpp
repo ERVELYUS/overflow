@@ -202,9 +202,9 @@ std::vector<MessageRecord> Database::get_recent_messages(int channel_id,
     msg.id = query.getColumn(0).getInt();
     msg.channel_id = query.getColumn(1).getInt();
     msg.sender_id = query.getColumn(2).getInt();
-    msg.sender_name = query.getColumn(3).getInt();
-    msg.content = query.getColumn(4).getInt();
-    msg.timestamp = query.getColumn(5).getInt();
+    msg.sender_name = query.getColumn(3).getText();
+    msg.content = query.getColumn(4).getText();
+    msg.timestamp = query.getColumn(5).getText();
 
     messages.push_back(msg);
   }
@@ -213,3 +213,26 @@ std::vector<MessageRecord> Database::get_recent_messages(int channel_id,
 
   return messages;
 };
+
+std::optional<std::string> Database::get_username(int user_id) {
+  SQLite::Statement query(m_db, "SELECT username FROM users WHERE id = ?");
+  query.bind(1, user_id);
+  if (query.executeStep()) {
+    return query.getColumn(0).getText();
+  }
+  return std::nullopt;
+};
+
+std::vector<ChannelRecord> Database::get_all_public_channels() {
+  std::vector<ChannelRecord> channels;
+  SQLite::Statement query(m_db, R"(
+    SELECT id, name
+    FROM channels 
+    WHERE type = 0
+  )");
+  while (query.executeStep()) {
+    channels.push_back({query.getColumn(0).getInt(),
+                        query.getColumn(1).getText(), ChannelType::Public});
+  }
+  return channels;
+}
