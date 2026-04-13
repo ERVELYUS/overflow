@@ -1,8 +1,12 @@
 #include "Database.h"
 
+#include <bcrypt/bcrypt.h>
+
 #include <algorithm>
 #include <exception>
 #include <iostream>
+
+#include "bcrypt/BCrypt.hpp"
 
 Database::Database(const std::string& db_path)
     : m_db(db_path, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE |
@@ -17,14 +21,17 @@ void Database::initialize_schema() {
         "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY "
         "KEY);");
 
+    // USERS TABLE
     m_db.exec(R"(
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     )");
 
+    // CHANNELS TABLE
     m_db.exec(R"(
       CREATE TABLE IF NOT EXISTS channels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,6 +40,7 @@ void Database::initialize_schema() {
       );
     )");
 
+    // CHANNELS_MEMBERS TABLE
     m_db.exec(R"(
       CREATE TABLE IF NOT EXISTS channel_members (
         channel_id INTEGER NOT NULL,
@@ -43,6 +51,7 @@ void Database::initialize_schema() {
       );
     )");
 
+    // MESSAGES TABLE
     m_db.exec(R"(
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,6 +231,39 @@ std::optional<std::string> Database::get_username(int user_id) {
   }
   return std::nullopt;
 };
+
+bool Database::register_user(const std::string& username,
+                             const std::string& password) {
+  try {
+    std::string hashed_password = BCrypt::generateHash(password, 12);
+
+    SQLite::Statement query(
+        m_db, "INSERT INTO users (username, password_hash) VALUES (?, ?)");
+    query.bind(1, username);
+    query.bind(2, hashed_password);
+    query.exec();
+    return true;
+  }
+  catch (...) {
+    return false;
+  }
+};
+
+std::optional<int> Database::authenticate_user(const std::string& username,
+                                               const std::string& password) {
+  SQLite::Statement query(
+      m_db, "SELECT id, password_hash FROM users WHERE username = ?");
+  query.bind(1, username);
+  if (query.executeStep()) {
+    int user_id = query.getColumn(0).getInt();
+    std::string stored_hash = query.getColumn(1).getText();
+
+    if (BCrypt::validatePassword(password, stored_hash)) {
+      return user_id;
+    }
+  }
+  return std::nullopt;
+}
 
 std::vector<ChannelRecord> Database::get_all_public_channels() {
   std::vector<ChannelRecord> channels;

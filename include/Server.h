@@ -9,9 +9,11 @@
 #include <unordered_map>
 
 #include "Channel.h"
+#include "Database.h"
 #include "User.h"
 
 class Server {
+  Database m_db;
   std::unordered_map<std::string, Channel> m_channels{};
 
   // We have two maps for users to optimize lookup time

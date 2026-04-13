@@ -8,6 +8,7 @@
 class User {
   TcpSocket m_socket{};
   std::string m_name{};
+  bool m_authenticated = false;
 
  public:
   User(TcpSocket socket, std::string_view name);
@@ -19,4 +20,6 @@ class User {
 
   void send(const Packet& packet);
   bool recv(Packet& packet);
+
+  void authenticate();
 };

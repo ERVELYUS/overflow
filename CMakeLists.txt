@@ -16,6 +16,7 @@ add_subdirectory(libs/cppcon)
 add_subdirectory(libs/ftxui)
 add_subdirectory(libs/guiHelper)
 add_subdirectory(libs/SQLiteCpp)
+add_subdirectory(libs/libbcrypt)
 
 set(CPPCON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/cppcon/include")
 
@@ -32,12 +33,14 @@ target_include_directories(overflow_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/SQLiteCpp/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/libbcrypt/include
 )
 
 target_link_libraries(overflow_server PRIVATE
     cppcon
     SQLiteCpp
     sqlite3
+    bcrypt
 )
 
 # CLI Client

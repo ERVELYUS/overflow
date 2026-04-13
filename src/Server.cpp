@@ -71,11 +71,14 @@ bool Server::is_valid_channel_name(std::string_view channel_name) {
   return true;
 }
 
-Server::Server(const std::string& ip, const std::string& port) {
+Server::Server(const std::string& ip, const std::string& port)
+    : m_db("server.db") {
   auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
   if (tcp_endpoints.empty()) {
     throw std::runtime_error("Could not resolve TCP");
   }
+
+  m_db.initialize_schema();
 
   // Bind to a local TCP endpoint and listen on it
   m_listener.bind(tcp_endpoints[0]);
@@ -111,6 +114,7 @@ void Server::handle_new_connection() {
   m_nick_to_fd.emplace(default_nickname, fd);
 
   m_polls.add(m_users.at(fd).get_socket(), POLLIN);
+  m_db.get_or_create_user(default_nickname);
 
   std::cout << "[LOG] New user connected\n" << std::flush;
 
@@ -143,6 +147,69 @@ void Server::process_command(User& user, const Packet& packet) {
   CommandID command = static_cast<CommandID>(command_protocol);
 
   switch (command) {
+    case CommandID::REGISTER: {
+      std::string username, password;
+      p >> username >> password;
+
+      Packet response;
+      response << static_cast<std::uint8_t>(CommandID::REGISTER);
+
+      if (!is_valid_format(username)) {
+        response << false << std::string("Invalid username format.");
+        user.send(response);
+        break;
+      }
+
+      // Try to register
+      if (m_db.register_user(username, password)) {
+        response << true
+                 << std::string(
+                        "Registration successful. Use /login to sign in.");
+        std::cout << "[LOG] User registered: " << username << "\n";
+      }
+      else {
+        response << false
+                 << std::string(
+                        "Username already exists or registration failed.");
+        std::cout << "[LOG] Registration failed for: " << username << "\n";
+      }
+
+      user.send(response);
+      break;
+    }
+    case CommandID::LOGIN: {
+      std::string username, password;
+      p >> username >> password;
+
+      Packet response;
+      response << static_cast<std::uint8_t>(CommandID::LOGIN);
+
+      auto user_id = m_db.authenticate_user(username, password);
+
+      if (user_id.has_value()) {
+        // Authentication successful
+        user.authenticate();
+
+        // Update user's nickname to registered username
+        std::string old_name(user.get_name());
+        m_nick_to_fd.erase(old_name);
+        m_nick_to_fd.emplace(username, user.get_socket().get_fd());
+        user.set_name(username);
+
+        response << true << username;
+        std::cout << "[LOG] User authenticated and renamed: " << username
+                  << "\n";
+
+        broadcast_users_list();
+      }
+      else {
+        response << false << std::string("Invalid username or password.");
+        std::cout << "[LOG] Failed login attempt: " << username << "\n";
+      }
+
+      user.send(response);
+      break;
+    }
     case CommandID::NICKNAME: {
       std::string new_name;
       p >> new_name;

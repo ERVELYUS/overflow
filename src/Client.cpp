@@ -67,6 +67,39 @@ void Client::handle_server_message(Packet& packet) {
     Console::print(ConsoleLevel::Info, "[" + sender + "] " + content);
     Console::print(ConsoleLevel::Prompt, "> ");
   }
+  else if (id == CommandID::REGISTER) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::string message;
+      packet >> message;
+      Console::print(ConsoleLevel::System, message);
+    }
+    else {
+      std::string error;
+      packet >> error;
+      Console::print(ConsoleLevel::Error, error);
+    }
+    Console::print(ConsoleLevel::Prompt, "> ");
+  }
+  else if (id == CommandID::LOGIN) {
+    bool successful{};
+    packet >> successful;
+    if (successful) {
+      std::string confirmed_username;
+      packet >> confirmed_username;
+      m_nickname = confirmed_username;
+      auto msg = std::make_shared<SelfNameMessage>(confirmed_username);
+      if (m_message_handler) m_message_handler(msg);
+      Console::print(ConsoleLevel::System, "Login successful!");
+    }
+    else {
+      std::string error;
+      packet >> error;
+      Console::print(ConsoleLevel::Error, error);
+    }
+    Console::print(ConsoleLevel::Prompt, "> ");
+  }
   else if (id == CommandID::SET_SELF_NAME) {
     std::string new_name{};
     packet >> new_name;
@@ -205,6 +238,38 @@ void Client::run() {
       std::string new_name = line.substr(6);
       p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
     }
+    else if (line.find("/register ") == 0) {
+      std::string data_line = line.substr(10);
+      size_t space_pos = data_line.find(' ');
+
+      if (space_pos != std::string::npos &&
+          space_pos < data_line.length() - 1) {
+        std::string username = data_line.substr(0, space_pos);
+        std::string password = data_line.substr(space_pos + 1);
+        p << static_cast<std::uint8_t>(CommandID::REGISTER) << username
+          << password;
+      }
+      else {
+        Console::print(ConsoleLevel::System,
+                       "Usage: /register <nickname> <password>.");
+      }
+    }
+    else if (line.find("/login ") == 0) {
+      std::string data_line = line.substr(7);
+      size_t space_pos = data_line.find(' ');
+
+      if (space_pos != std::string::npos &&
+          space_pos < data_line.length() - 1) {
+        std::string username = data_line.substr(0, space_pos);
+        std::string password = data_line.substr(space_pos + 1);
+        p << static_cast<std::uint8_t>(CommandID::LOGIN) << username
+          << password;
+      }
+      else {
+        Console::print(ConsoleLevel::System,
+                       "Usage: /login <nickname> <password>.");
+      }
+    }
     else if (line.find("/join ") == 0) {
       if (!m_current_channel.empty()) {
         Console::print(
@@ -291,7 +356,21 @@ void Client::send_message(const std::string& line) {
 
   Packet p;
 
-  if (line.find("/nick ") == 0) {
+  if (line.find("/register ") == 0) {
+    std::string data_line = line.substr(10);
+    size_t space_pos = data_line.find(' ');
+    std::string username = data_line.substr(0, space_pos);
+    std::string password = data_line.substr(space_pos + 1);
+    p << static_cast<std::uint8_t>(CommandID::REGISTER) << username << password;
+  }
+  else if (line.find("/login ") == 0) {
+    std::string data_line = line.substr(7);
+    size_t space_pos = data_line.find(' ');
+    std::string username = data_line.substr(0, space_pos);
+    std::string password = data_line.substr(space_pos + 1);
+    p << static_cast<std::uint8_t>(CommandID::LOGIN) << username << password;
+  }
+  else if (line.find("/nick ") == 0) {
     std::string new_name = line.substr(6);
     p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
   }

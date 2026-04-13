@@ -17,3 +17,5 @@ bool User::recv(Packet& packet) {
   }
   return true;
 }
+
+void User::authenticate() { m_authenticated = true; }

@@ -41,6 +41,9 @@ class Database {
   // Users
   int get_or_create_user(const std::string& username);
   std::optional<std::string> get_username(int user_id);
+  bool register_user(const std::string& username, const std::string& password);
+  std::optional<int> authenticate_user(const std::string& username,
+                                       const std::string& password);
 
   // Channels/DMs
   int get_or_create_channel(const std::string& name);
