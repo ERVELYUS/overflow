@@ -37,13 +37,13 @@ static void ClentDoWork() {
   try {
     Client client{};
 
-    client.setup_message_handler(&HandleMessage);
+    client.register_message_callback(&HandleMessage);
 
     std::cout << "Connecting to localhost...\n";
     client.connect("127.0.0.1", "6456");
 
     std::cout << "Connected. Commands: /nick [name], /join [channel]\n";
-    client.run();
+    // client.run();
   }
   catch (const std::exception& e) {
     std::cerr << "Client Thread Error: " << e.what() << '\n';

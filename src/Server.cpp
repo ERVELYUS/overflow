@@ -5,6 +5,31 @@
 
 #include "Protocol.h"
 
+Server::Server(const std::string& ip, const std::string& port)
+    : m_db("server.db") {
+  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
+  if (tcp_endpoints.empty()) {
+    throw std::runtime_error("Could not resolve TCP");
+  }
+
+  m_db.initialize_schema();
+  auto existing_channels = m_db.get_all_channels();
+  for (auto& [id, name, type] : existing_channels) {
+    Channel chan;
+    chan.set_id(id);
+    m_channels.emplace(name, std::move(chan));
+  }
+
+  // Bind to a local TCP endpoint and listen on it
+  m_listener.bind(tcp_endpoints[0]);
+  m_listener.listen(SOMAXCONN);
+
+  // Poll on said endpoint
+  m_polls.add(m_listener, POLLIN);
+
+  m_running = true;
+}
+
 void Server::run() {
   m_running = true;
 
@@ -71,25 +96,6 @@ bool Server::is_valid_channel_name(std::string_view channel_name) {
   return true;
 }
 
-Server::Server(const std::string& ip, const std::string& port)
-    : m_db("server.db") {
-  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
-  if (tcp_endpoints.empty()) {
-    throw std::runtime_error("Could not resolve TCP");
-  }
-
-  m_db.initialize_schema();
-
-  // Bind to a local TCP endpoint and listen on it
-  m_listener.bind(tcp_endpoints[0]);
-  m_listener.listen(SOMAXCONN);
-
-  // Poll on said endpoint
-  m_polls.add(m_listener, POLLIN);
-
-  m_running = true;
-}
-
 void Server::broadcast_users_list() {
   Packet users_packet;
   users_packet << static_cast<std::uint8_t>(CommandID::LIST_USERS)
@@ -105,23 +111,24 @@ void Server::broadcast_users_list() {
   }
 }
 
+// TODO: Cleanup this mess
 void Server::handle_new_connection() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
 
   std::string default_nickname = "user_" + std::to_string(m_next_user_id++);
+
   m_users.emplace(fd, User(std::move(user_socket), default_nickname));
   m_nick_to_fd.emplace(default_nickname, fd);
 
   m_polls.add(m_users.at(fd).get_socket(), POLLIN);
-  m_db.get_or_create_user(default_nickname);
 
-  std::cout << "[LOG] New user connected\n" << std::flush;
+  std::cout << "[LOG] New anonymous connection on FD " << fd << "\n";
 
-  Packet identity_packet;
-  identity_packet << static_cast<std::uint8_t>(CommandID::SET_SELF_NAME)
-                  << default_nickname;
-  m_users.at(fd).send(identity_packet);
+  // Packet identity_packet;
+  //  identity_packet << static_cast<std::uint8_t>(CommandID::SET_SELF_NAME)
+  //<< default_nickname;
+  //  m_users.at(fd).send(identity_packet);
 
   broadcast_users_list();
 }
@@ -145,6 +152,15 @@ void Server::process_command(User& user, const Packet& packet) {
   p >> command_protocol;
 
   CommandID command = static_cast<CommandID>(command_protocol);
+
+  if (!user.is_authenticated() && command != CommandID::REGISTER &&
+      command != CommandID::LOGIN) {
+    Packet error_packet;
+    error_packet << static_cast<std::uint8_t>(CommandID::ERROR)
+                 << std::string("Please register or login first.");
+    user.send(error_packet);
+    return;
+  }
 
   switch (command) {
     case CommandID::REGISTER: {
@@ -185,10 +201,10 @@ void Server::process_command(User& user, const Packet& packet) {
       response << static_cast<std::uint8_t>(CommandID::LOGIN);
 
       auto user_id = m_db.authenticate_user(username, password);
-
       if (user_id.has_value()) {
         // Authentication successful
         user.authenticate();
+        user.set_id(user_id.value());
 
         // Update user's nickname to registered username
         std::string old_name(user.get_name());
@@ -255,6 +271,14 @@ void Server::process_command(User& user, const Packet& packet) {
         user.send(success_packet);
         std::cout << "[LOG] User " << user.get_name() << " joined #"
                   << channel_name << " channel\n";
+
+        auto history = m_db.get_recent_messages(target_channel->get_id(), 50);
+        for (const auto& msg : history) {
+          Packet hist_packet;
+          hist_packet << static_cast<std::uint8_t>(CommandID::MSG)
+                      << msg.sender_name << msg.content;
+          user.send(hist_packet);
+        }
       }
       else {
         Packet error_packet;
@@ -274,6 +298,8 @@ void Server::process_command(User& user, const Packet& packet) {
       if (it != m_channels.end()) {
         Channel& channel = it->second;
 
+        m_db.save_message(channel.get_id(), user.get_id(), message_text);
+
         Packet broadcast_packet;
         broadcast_packet << static_cast<std::uint8_t>(CommandID::MSG)
                          << std::string(user.get_name()) << message_text;
@@ -291,23 +317,32 @@ void Server::process_command(User& user, const Packet& packet) {
       p >> target_name >> message_text;
 
       auto it = m_nick_to_fd.find(target_name);
-      if (it != m_nick_to_fd.end()) {
-        socket_t target_fd = it->second;
 
-        auto user_it = m_users.find(target_fd);
-        if (user_it != m_users.end()) {
+      int target_db_id = -1;
+      User* target_user_obj = nullptr;
+
+      if (it != m_nick_to_fd.end()) {
+        target_user_obj = &m_users.at(it->second);
+        target_db_id = target_user_obj->get_id();
+      }
+      else {
+        // TODO: Dm to offline users
+      }
+
+      if (target_db_id != -1) {
+        int dm_channel_id = m_db.get_or_create_dm(user.get_id(), target_db_id);
+
+        m_db.save_message(dm_channel_id, user.get_id(), message_text);
+
+        if (target_user_obj) {
           Packet dm_packet{};
           dm_packet << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG)
                     << std::string(user.get_name()) << message_text;
-
-          user_it->second.send(dm_packet);
-
-          std::cout << "[LOG] User @" << user.get_name() << " sent DM to user @"
-                    << target_name << '\n';
+          target_user_obj->send(dm_packet);
         }
-        else {
-          m_nick_to_fd.erase(it);
-        }
+
+        std::cout << "[LOG] DM saved and sent from @" << user.get_name()
+                  << " to @" << target_name << '\n';
       }
       else {
         Packet error_packet{};
@@ -454,6 +489,9 @@ Server::ChannelCreateReturnValue Server::create_channel(std::string_view name) {
     return ChannelCreateReturnValue::ALREADY_EXISTS;
   }
 
-  m_channels.emplace(std::string(name), Channel());
+  int db_id = m_db.get_or_create_channel(std::string(name));
+  Channel new_channel;
+  new_channel.set_id(db_id);
+  m_channels.emplace(std::string(name), std::move(new_channel));
   return ChannelCreateReturnValue::SUCCESS;
 }

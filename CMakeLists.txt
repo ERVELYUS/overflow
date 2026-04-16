@@ -20,8 +20,14 @@ add_subdirectory(libs/libbcrypt)
 
 set(CPPCON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/cppcon/include")
 
+# Shared Client Logic (used by CLI, TUI, and GUI)
+set(CLIENT_COMMON_SOURCES
+    src/Client.cpp
+    src/Console.cpp
+)
+
 # Server
-add_executable(overflow_server
+add_executable(server
     src/start_server.cpp
     src/User.cpp
     src/Server.cpp
@@ -29,14 +35,14 @@ add_executable(overflow_server
     src/Database.cpp
 )
 
-target_include_directories(overflow_server PRIVATE
+target_include_directories(server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/SQLiteCpp/include
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/libbcrypt/include
 )
 
-target_link_libraries(overflow_server PRIVATE
+target_link_libraries(server PRIVATE
     cppcon
     SQLiteCpp
     sqlite3
@@ -44,53 +50,51 @@ target_link_libraries(overflow_server PRIVATE
 )
 
 # CLI Client
-add_executable(overflow_client
-    src/start_client.cpp
-    src/Console.cpp
-    src/Client.cpp
+add_executable(cli
+    src/start_cli_client.cpp
+    src/CliApp.cpp
+    ${CLIENT_COMMON_SOURCES}
 )
 
-target_include_directories(overflow_client PRIVATE
+target_include_directories(cli PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
 )
 
-target_link_libraries(overflow_client PRIVATE
+target_link_libraries(cli PRIVATE
     cppcon
 )
 
 # GUI Client
-add_executable(overflow_gui_client
+add_executable(gui
     src/start_gui_client.cpp
-    src/Console.cpp
-    src/Client.cpp
+    ${CLIENT_COMMON_SOURCES}
 )
 
-target_include_directories(overflow_gui_client PRIVATE
+target_include_directories(gui PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/guiHelper/include
 )
 
-target_link_libraries(overflow_gui_client PRIVATE
+target_link_libraries(gui PRIVATE
     cppcon
     guiHelper
 )
 
 # TUI Client
-add_executable(overflow_tui_client
+add_executable(tui
     src/start_tui_client.cpp
     src/TuiApp.cpp
-    src/Console.cpp
-    src/Client.cpp
+    ${CLIENT_COMMON_SOURCES}
 )
 
-target_include_directories(overflow_tui_client PRIVATE
+target_include_directories(tui PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CPPCON_INCLUDE_DIR}
 )
 
-target_link_libraries(overflow_tui_client PRIVATE
+target_link_libraries(tui PRIVATE
     cppcon
     ftxui::screen
     ftxui::dom
@@ -101,15 +105,17 @@ target_link_libraries(overflow_tui_client PRIVATE
 if(UNIX)
   find_package(Threads REQUIRED)
 
-  target_link_libraries(overflow_server PRIVATE Threads::Threads)
-  target_link_libraries(overflow_client PRIVATE Threads::Threads)
-  target_link_libraries(overflow_gui_client PRIVATE Threads::Threads)
-  target_link_libraries(overflow_tui_client PRIVATE Threads::Threads)
+  set(THREADS_LIBS Threads::Threads)
+  target_link_libraries(server PRIVATE ${THREADS_LIBS})
+  target_link_libraries(cli PRIVATE ${THREADS_LIBS})
+  target_link_libraries(gui PRIVATE ${THREADS_LIBS})
+  target_link_libraries(tui PRIVATE ${THREADS_LIBS})
 endif()
 
 if(WIN32)
-  target_link_libraries(overflow_server PRIVATE Ws2_32)
-  target_link_libraries(overflow_client PRIVATE Ws2_32)
-  target_link_libraries(overflow_gui_client PRIVATE Ws2_32)
-  target_link_libraries(overflow_tui_client PRIVATE Ws2_32)
+  set(WINSOCK_LIB Ws2_32)
+  target_link_libraries(server PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(cli PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(gui PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(tui PRIVATE ${WINSOCK_LIB})
 endif()

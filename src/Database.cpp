@@ -1,7 +1,5 @@
 #include "Database.h"
 
-#include <bcrypt/bcrypt.h>
-
 #include <algorithm>
 #include <exception>
 #include <iostream>
@@ -265,7 +263,7 @@ std::optional<int> Database::authenticate_user(const std::string& username,
   return std::nullopt;
 }
 
-std::vector<ChannelRecord> Database::get_all_public_channels() {
+std::vector<ChannelRecord> Database::get_all_channels() {
   std::vector<ChannelRecord> channels;
   SQLite::Statement query(m_db, R"(
     SELECT id, name

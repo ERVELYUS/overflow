@@ -13,7 +13,7 @@ TuiApp::TuiApp() : m_running(true), m_screen(ScreenInteractive::Fullscreen()) {
 
   m_modal_input_field = Input(&m_new_channel_input, "New channel name...");
 
-  m_client.setup_message_handler([this](std::shared_ptr<Message> msg) {
+  m_client.register_message_callback([this](std::shared_ptr<Message> msg) {
     HandleIncomingMessage(msg);
     m_screen.PostEvent(Event::Custom);
   });
