@@ -39,7 +39,7 @@ void Server::run() {
 
     for (socket_t fd : ready_fds) {
       if (fd == m_listener.get_fd()) {
-        handle_new_connection();
+        connect_user();
       }
       else {
         if (m_users.find(fd) != m_users.end()) {
@@ -112,7 +112,7 @@ void Server::broadcast_users_list() {
 }
 
 // TODO: Cleanup this mess
-void Server::handle_new_connection() {
+void Server::connect_user() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
 
@@ -231,29 +231,43 @@ void Server::process_command(User& user, const Packet& packet) {
       p >> new_name;
 
       Packet nickname_change_msg{};
-      if (is_valid_nickname(new_name)) {
-        nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME)
-                            << true << new_name;
-        std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
-                  << " from '" << user.get_name() << "' to '" << new_name
-                  << "'\n"
+      nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME);
+      if (!is_valid_nickname(new_name)) {
+        nickname_change_msg << false;
+        user.send(nickname_change_msg);
+        std::cout << "[LOG] User " << user.get_socket().get_fd()
+                  << " tried to change nickname unsuccessfully\n"
                   << std::flush;
+        break;
+      }
+      if (new_name == user.get_name()) {
+        nickname_change_msg << true << new_name;
+        user.send(nickname_change_msg);
+        break;
+      }
+
+      try {
+        m_db.update_username(user.get_id(), new_name);
 
         // Sync
         m_nick_to_fd.erase(std::string(user.get_name()));
         m_nick_to_fd.emplace(new_name, user.get_socket().get_fd());
-
         user.set_name(new_name);
 
+        nickname_change_msg << true << new_name;
+        std::cout << "[LOG] Renaming User on FD " << user.get_socket().get_fd()
+                  << " from '" << user.get_name() << "' to '" << new_name
+                  << "'\n"
+                  << std::flush;
         broadcast_users_list();
       }
-      else {
-        nickname_change_msg << static_cast<std::uint8_t>(CommandID::NICKNAME)
-                            << false;
+      catch (...) {
+        nickname_change_msg << false;
         std::cout << "[LOG] User " << user.get_socket().get_fd()
                   << " tried to change nickname unsuccessfully\n"
                   << std::flush;
       }
+
       user.send(nickname_change_msg);
       break;
     }
@@ -272,6 +286,7 @@ void Server::process_command(User& user, const Packet& packet) {
         std::cout << "[LOG] User " << user.get_name() << " joined #"
                   << channel_name << " channel\n";
 
+        m_db.add_user_to_channel(target_channel->get_id(), user.get_id());
         auto history = m_db.get_recent_messages(target_channel->get_id(), 50);
         for (const auto& msg : history) {
           Packet hist_packet;
@@ -360,6 +375,7 @@ void Server::process_command(User& user, const Packet& packet) {
       auto it = m_channels.find(target_channel);
       if (it != m_channels.end()) {
         it->second.remove_user(user.get_socket().get_fd());
+        m_db.remove_user_from_channel(it->second.get_id(), user.get_id());
       }
       std::cout << "[LOG] User " << user.get_name() << " left #"
                 << target_channel << " channel\n";

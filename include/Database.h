@@ -41,6 +41,8 @@ class Database {
   // Users
   int get_or_create_user(const std::string& username);
   std::optional<std::string> get_username(int user_id);
+  bool username_exists(const std::string& username);
+  void update_username(int user_id, const std::string& new_name);
   bool register_user(const std::string& username, const std::string& password);
   std::optional<int> authenticate_user(const std::string& username,
                                        const std::string& password);
@@ -50,6 +52,7 @@ class Database {
   int get_or_create_dm(int user1_id, int user2_id);
   std::vector<ChannelRecord> get_all_channels();
   void add_user_to_channel(int channel_id, int user_id);
+  void remove_user_from_channel(int channel_id, int user_id);
 
   // Messages
   void save_message(int channel_id, int sender_id, const std::string& content);

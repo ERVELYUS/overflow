@@ -177,6 +177,14 @@ void Database::add_user_to_channel(int channel_id, int user_id) {
   query.exec();
 }
 
+void Database::remove_user_from_channel(int channel_id, int user_id) {
+  SQLite::Statement query(
+      m_db, "DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?");
+  query.bind(1, channel_id);
+  query.bind(2, user_id);
+  query.exec();
+}
+
 // TODO: add something other than std::string
 void Database::save_message(int channel_id, int sender_id,
                             const std::string& content) {
@@ -229,6 +237,20 @@ std::optional<std::string> Database::get_username(int user_id) {
   }
   return std::nullopt;
 };
+
+bool Database::username_exists(const std::string& username) {
+  SQLite::Statement query(m_db,
+                          "SELECT 1 FROM users WHERE username = ? LIMIT 1");
+  query.bind(1, username);
+  return query.executeStep();
+}
+
+void Database::update_username(int user_id, const std::string& new_username) {
+  SQLite::Statement query(m_db, "UPDATE users SET username = ? WHERE id = ?");
+  query.bind(1, new_username);
+  query.bind(2, user_id);
+  query.exec();
+}
 
 bool Database::register_user(const std::string& username,
                              const std::string& password) {

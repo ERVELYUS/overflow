@@ -103,7 +103,6 @@ void Client::handle_server_message(Packet& packet) {
         if (m_message_handler) {
           m_message_handler(std::make_shared<SelfNameMessage>(m_nickname));
         }
-        notify_ui(ConsoleLevel::System, "Nickname updated to: " + m_nickname);
       }
       else {
         notify_ui(ConsoleLevel::Error, "Nickname change failed.");
