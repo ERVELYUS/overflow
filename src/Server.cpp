@@ -176,20 +176,33 @@ void Server::process_command(User& user, const Packet& packet) {
         break;
       }
 
-      // Try to register
-      if (m_db.register_user(username, password)) {
-        response << true
-                 << std::string(
-                        "Registration successful. Use /login to sign in.");
-        std::cout << "[LOG] User registered: " << username << "\n";
-      }
-      else {
+      if (!m_db.register_user(username, password)) {
         response << false
                  << std::string(
-                        "Username already exists or registration failed.");
-        std::cout << "[LOG] Registration failed for: " << username << "\n";
+                        "Username already exists or registration failed");
+        std::cout << "[LOG] Unsuccessfull registration: " << username << '\n';
+        user.send(response);
+        break;
       }
 
+      auto user_id = m_db.authenticate_user(username, password);
+      if (!user_id.has_value()) {
+        response << false
+                 << std::string("Registration successful but login failed");
+
+        std::cout << "[LOG] User registered but not logged in: " << username
+                  << '\n';
+        user.send(response);
+        break;
+      }
+
+      activate_user_session(user, user_id.value(), username);
+
+      response << true
+               << std::string(
+                      "Registration successful. You are now logged in as " +
+                      username + ".");
+      std::cout << "[LOG] User registered and logged in: " << username << '\n';
       user.send(response);
       break;
     }
@@ -201,28 +214,17 @@ void Server::process_command(User& user, const Packet& packet) {
       response << static_cast<std::uint8_t>(CommandID::LOGIN);
 
       auto user_id = m_db.authenticate_user(username, password);
-      if (user_id.has_value()) {
-        // Authentication successful
-        user.authenticate();
-        user.set_id(user_id.value());
-
-        // Update user's nickname to registered username
-        std::string old_name(user.get_name());
-        m_nick_to_fd.erase(old_name);
-        m_nick_to_fd.emplace(username, user.get_socket().get_fd());
-        user.set_name(username);
-
-        response << true << username;
-        std::cout << "[LOG] User authenticated and renamed: " << username
-                  << "\n";
-
-        broadcast_users_list();
-      }
-      else {
+      if (!user_id.has_value()) {
         response << false << std::string("Invalid username or password.");
-        std::cout << "[LOG] Failed login attempt: " << username << "\n";
+        std::cout << "[LOG] Failed login attempt: " << username << '\n';
+        user.send(response);
+        break;
       }
 
+      activate_user_session(user, user_id.value(), username);
+
+      response << true << username;
+      std::cout << "[LOG] User authenticated and renamed: " << username << '\n';
       user.send(response);
       break;
     }
@@ -483,6 +485,19 @@ void Server::disconnect_user(socket_t user_fd) {
   m_users.erase(it);
 
   std::cout << "[LOG] Socket " << user_fd << " disconnected and cleaned up\n";
+
+  broadcast_users_list();
+}
+
+void Server::activate_user_session(User& user, int user_id,
+                                   const std::string& username) {
+  user.authenticate();
+  user.set_id(user_id);
+
+  std::string old_name(user.get_name());
+  m_nick_to_fd.erase(old_name);
+  m_nick_to_fd.emplace(username, user.get_socket().get_fd());
+  user.set_name(username);
 
   broadcast_users_list();
 }

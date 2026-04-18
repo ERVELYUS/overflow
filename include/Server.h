@@ -42,6 +42,8 @@ class Server {
   void process_command(User& user, const Packet& packet);
 
   void disconnect_user(socket_t socket_fd);
+  void activate_user_session(User& user, int user_id,
+                             const std::string& username);
 
   enum class ChannelCreateReturnValue {
     SUCCESS,
