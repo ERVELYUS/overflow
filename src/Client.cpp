@@ -66,7 +66,6 @@ void Client::handle_server_message(Packet& packet) {
       }
       break;
     }
-
     case CommandID::LOGIN:
     case CommandID::REGISTER: {
       bool successful{};
@@ -74,18 +73,20 @@ void Client::handle_server_message(Packet& packet) {
       packet >> successful >> message;
 
       if (successful) {
+        m_authenticated = true;
+        m_nickname = message;
+
+        if (m_message_handler) {
+          m_message_handler(std::make_shared<SelfNameMessage>(m_nickname));
+        }
+
         if (id == CommandID::LOGIN) {
-          m_nickname = message;
-          if (m_message_handler) {
-            m_message_handler(std::make_shared<SelfNameMessage>(m_nickname));
-          }
           notify_ui(ConsoleLevel::System,
                     "Login successful! Welcome, " + m_nickname);
-          m_authenticated = true;
         }
         else {
           notify_ui(ConsoleLevel::System,
-                    "Registration successful: " + message);
+                    "Registration successful! Welcome, " + m_nickname);
         }
       }
       else {
@@ -93,7 +94,6 @@ void Client::handle_server_message(Packet& packet) {
       }
       break;
     }
-
     case CommandID::NICKNAME:
     case CommandID::SET_SELF_NAME: {
       bool successful{};
@@ -123,11 +123,6 @@ void Client::handle_server_message(Packet& packet) {
       }
 
       if (m_message_handler) m_message_handler(channels);
-
-      if (static_cast<UpdateType>(type_raw) == UpdateType::ManualRequest) {
-        notify_ui(ConsoleLevel::System,
-                  "Channels retrieved (" + std::to_string(count) + ")");
-      }
       break;
     }
 
@@ -146,12 +141,17 @@ void Client::handle_server_message(Packet& packet) {
       if (m_message_handler) m_message_handler(users);
       break;
     }
-
     case CommandID::JOIN: {
       bool successful{};
       packet >> successful;
       if (successful) {
         packet >> m_current_channel;
+
+        if (m_message_handler) {
+          m_message_handler(
+              std::make_shared<JoinedChannelMessage>(m_current_channel));
+        }
+
         notify_ui(ConsoleLevel::System, "Joined #" + m_current_channel);
       }
       else {
@@ -159,11 +159,12 @@ void Client::handle_server_message(Packet& packet) {
       }
       break;
     }
-
     case CommandID::PRIVATE_MSG: {
       std::string sender, content;
       packet >> sender >> content;
-      notify_ui(ConsoleLevel::Info, "[PM from " + sender + "]: " + content);
+      if (m_message_handler) {
+        m_message_handler(std::make_shared<UserMessage>(sender, content));
+      }
       break;
     }
 
@@ -293,6 +294,22 @@ std::optional<Packet> Client::build_command_packet(const std::string& line) {
                    "You are leaving #" + m_current_channel + " channel.");
     p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
     m_current_channel = "";
+  }
+  else if (line.find("/pm ") == 0) {
+    std::string data_line = line.substr(4);
+    size_t space_pos = data_line.find(' ');
+
+    if (space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+      std::string target_name = data_line.substr(0, space_pos);
+      std::string message_text = data_line.substr(space_pos + 1);
+      p << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG) << target_name
+        << message_text;
+    }
+    else {
+      Console::print(ConsoleLevel::System, "Usage: /pm <nickname> <message>.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
+    }
   }
   else if (line[0] != '/') {
     if (m_current_channel.empty()) return std::nullopt;

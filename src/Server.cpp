@@ -198,10 +198,7 @@ void Server::process_command(User& user, const Packet& packet) {
 
       activate_user_session(user, user_id.value(), username);
 
-      response << true
-               << std::string(
-                      "Registration successful. You are now logged in as " +
-                      username + ".");
+      response << true << username;
       std::cout << "[LOG] User registered and logged in: " << username << '\n';
       user.send(response);
       break;

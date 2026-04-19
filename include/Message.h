@@ -37,3 +37,9 @@ struct SelfNameMessage : public Message {
   SelfNameMessage(const std::string& name) : m_name(name) {}
   std::string m_name;
 };
+
+struct JoinedChannelMessage : public Message {
+  JoinedChannelMessage(std::string channel) : m_channel(std::move(channel)) {}
+
+  std::string m_channel;
+};
