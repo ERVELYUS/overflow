@@ -229,6 +229,33 @@ std::vector<MessageRecord> Database::get_recent_messages(int channel_id,
   return messages;
 };
 
+std::vector<DMRecord> Database::get_dm_for_user(int user_id) {
+  std::vector<DMRecord> lines;
+
+  SQLite::Statement query(m_db, R"(
+    SELECT c.id, u.username
+    FROM channels c
+    JOIN channel_members cm_self ON cm_self.channel_id = c.id
+    JOIN channel_members cm_peer ON cm_peer.channel_id = c.id
+    JOIN users u ON u.id = cm_peer.user_id
+    WHERE c.type = 1
+      AND cm_self.user_id = ?
+      AND cm_peer.user_id != ?
+    GROUP BY c.id, u.username
+    ORDER BY c.id DESC
+  )");
+
+  query.bind(1, user_id);
+  query.bind(2, user_id);
+
+  while (query.executeStep()) {
+    lines.push_back(
+        {query.getColumn(0).getInt(), query.getColumn(1).getText()});
+  }
+
+  return lines;
+};
+
 std::optional<std::string> Database::get_username(int user_id) {
   SQLite::Statement query(m_db, "SELECT username FROM users WHERE id = ?");
   query.bind(1, user_id);

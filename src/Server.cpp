@@ -111,6 +111,24 @@ void Server::broadcast_users_list() {
   }
 }
 
+void Server::send_dm_history(User& user) {
+  auto lines = m_db.get_dm_for_user(user.get_id());
+
+  for (const auto& line : lines) {
+    Packet p;
+    p << static_cast<std::uint8_t>(CommandID::DM_HISTORY) << line.peer_name;
+
+    auto history = m_db.get_recent_messages(line.channel_id, 50);
+    p << static_cast<std::uint32_t>(history.size());
+
+    for (const auto& msg : history) {
+      p << msg.sender_name << msg.content;
+    }
+
+    user.send(p);
+  }
+}
+
 // TODO: Cleanup this mess
 void Server::connect_user() {
   TcpSocket user_socket = m_listener.accept();
@@ -197,6 +215,7 @@ void Server::process_command(User& user, const Packet& packet) {
       }
 
       activate_user_session(user, user_id.value(), username);
+      send_dm_history(user);
 
       response << true << username;
       std::cout << "[LOG] User registered and logged in: " << username << '\n';
@@ -219,6 +238,7 @@ void Server::process_command(User& user, const Packet& packet) {
       }
 
       activate_user_session(user, user_id.value(), username);
+      send_dm_history(user);
 
       response << true << username;
       std::cout << "[LOG] User authenticated and renamed: " << username << '\n';

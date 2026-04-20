@@ -37,6 +37,7 @@ class Server {
 
   void connect_user();
   void broadcast_users_list();
+  void send_dm_history(User& user);
   void handle_client_message(socket_t user_fd);
 
   void process_command(User& user, const Packet& packet);

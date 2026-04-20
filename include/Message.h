@@ -24,6 +24,18 @@ struct UserMessage : public Message {
   std::string m_msg;
 };
 
+struct DMHistoryLine {
+  std::string m_sender;
+  std::string m_text;
+};
+
+struct DMHistoryMessage : public Message {
+  explicit DMHistoryMessage(std::string peer) : m_peer(std::move(peer)) {}
+
+  std::string m_peer;
+  std::list<DMHistoryLine> m_lines;
+};
+
 struct UsersList : public Message {
   UpdateType m_update_type{UpdateType::ManualRequest};
 

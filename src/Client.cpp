@@ -94,6 +94,24 @@ void Client::handle_server_message(Packet& packet) {
       }
       break;
     }
+    case CommandID::DM_HISTORY: {
+      std::string peer_name;
+      std::uint32_t count{};
+      packet >> peer_name >> count;
+
+      auto history = std::make_shared<DMHistoryMessage>(peer_name);
+
+      for (std::uint32_t i = 0; i < count; ++i) {
+        std::string sender, text;
+        packet >> sender >> text;
+        history->m_lines.push_back(DMHistoryLine{sender, text});
+      }
+
+      if (m_message_handler) {
+        m_message_handler(history);
+      }
+      break;
+    }
     case CommandID::NICKNAME:
     case CommandID::SET_SELF_NAME: {
       bool successful{};

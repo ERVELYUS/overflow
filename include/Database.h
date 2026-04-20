@@ -10,6 +10,11 @@ struct UserRecord {
   std::string username;
 };
 
+struct DMRecord {
+  int channel_id;
+  std::string peer_name;
+};
+
 enum class ChannelType {
   Public,
   DM,
@@ -59,4 +64,5 @@ class Database {
 
   std::vector<MessageRecord> get_recent_messages(int channel_id,
                                                  int limit = 50);
+  std::vector<DMRecord> get_dm_for_user(int user_id);
 };

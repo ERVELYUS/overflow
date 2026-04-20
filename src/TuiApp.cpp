@@ -97,6 +97,20 @@ void TuiApp::HandleIncomingMessage(std::shared_ptr<Message> msg) {
       AppendLine(m_dm_histories[key], userMsg->m_name, userMsg->m_msg);
     }
   }
+  else if (auto dmHistory = std::dynamic_pointer_cast<DMHistoryMessage>(msg)) {
+    auto& history = m_dm_histories[dmHistory->m_peer];
+
+    history.clear();
+    for (const auto& line : dmHistory->m_lines) {
+      AppendLine(history, line.m_sender, line.m_text);
+    }
+
+    if (std::find(m_dms_state.items.begin(), m_dms_state.items.end(),
+                  dmHistory->m_peer) == m_dms_state.items.end()) {
+      m_dms_state.items.push_back(dmHistory->m_peer);
+      m_dms_display_items.push_back("@" + dmHistory->m_peer);
+    }
+  }
   else if (auto usersList = std::dynamic_pointer_cast<UsersList>(msg)) {
     m_dms_state.items.clear();
     m_dms_display_items.clear();

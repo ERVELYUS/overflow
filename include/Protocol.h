@@ -15,7 +15,8 @@ enum class CommandID : std::uint8_t {
   CREATE = 9,
   PRIVATE_MSG = 10,
   SET_SELF_NAME = 11,
-  ERROR = 12
+  DM_HISTORY = 12,
+  ERROR = 13
 };
 
 enum class UpdateType : std::uint8_t {
