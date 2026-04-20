@@ -461,11 +461,10 @@ void Server::process_command(User& user, const Packet& packet) {
       else {
         std::string error_message;
         if (result == ChannelCreateReturnValue::INVALID_NAME) {
-          error_message +=
-              "[System] Invalid channel name. Use 3-20 alphanumeric chars.\n";
+          error_message += "Invalid channel name. Use 3-20 alphanumeric chars.";
         }
         else if (result == ChannelCreateReturnValue::ALREADY_EXISTS) {
-          error_message += "[System] Channel with that name already exists.\n";
+          error_message += "Channel with that name already exists.";
         }
         create_result << error_message;
         std::cout << "[LOG] User " << user.get_name()
