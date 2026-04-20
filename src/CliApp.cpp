@@ -9,6 +9,11 @@ CliApp::CliApp() { setup_callbacks(); }
 
 void CliApp::setup_callbacks() {
   m_client.register_message_callback([](std::shared_ptr<Message> msg) {
+    auto print_prompt = [] {
+      Console::print(ConsoleLevel::Prompt, "> ");
+      std::cout.flush();
+    };
+
     if (auto user_msg = std::dynamic_pointer_cast<UserMessage>(msg)) {
       Console::print(ConsoleLevel::Info,
                      "[" + user_msg->m_name + "] " + user_msg->m_msg);
@@ -20,8 +25,40 @@ void CliApp::setup_callbacks() {
       Console::print(ConsoleLevel::System,
                      "Your name is now: " + self_msg->m_name);
     }
-    Console::print(ConsoleLevel::Prompt, "> ");
-    std::cout.flush();
+    else if (auto users_msg = std::dynamic_pointer_cast<UsersList>(msg)) {
+      if (users_msg->m_update_type == UpdateType::BackgroundPush) {
+        return;
+      }
+
+      Console::print(ConsoleLevel::System, "Active users:");
+
+      if (users_msg->m_users.empty()) {
+        Console::print(ConsoleLevel::Info, "  (none)");
+      }
+      else {
+        for (const auto& name : users_msg->m_users) {
+          Console::print(ConsoleLevel::Info, "  @" + name);
+        }
+      }
+    }
+    else if (auto channels_msg = std::dynamic_pointer_cast<ChannelsList>(msg)) {
+      if (channels_msg->m_update_type == UpdateType::BackgroundPush) {
+        return;
+      }
+
+      Console::print(ConsoleLevel::System, "Available channels:");
+
+      if (channels_msg->m_channels.empty()) {
+        Console::print(ConsoleLevel::Info, "  (none)");
+      }
+      else {
+        for (const auto& name : channels_msg->m_channels) {
+          Console::print(ConsoleLevel::Info, "  #" + name);
+        }
+      }
+    }
+
+    print_prompt();
   });
 }
 

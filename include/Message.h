@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Console.h"
+#include "Protocol.h"
 
 struct Message {
   virtual ~Message() = default;  // RTTI
@@ -24,11 +25,15 @@ struct UserMessage : public Message {
 };
 
 struct UsersList : public Message {
+  UpdateType m_update_type{UpdateType::ManualRequest};
+
   void operator<<(const std::string& name) { m_users.push_back(name); }
   std::list<std::string> m_users;
 };
 
 struct ChannelsList : public Message {
+  UpdateType m_update_type{UpdateType::ManualRequest};
+
   void operator<<(const std::string& name) { m_channels.push_back(name); }
   std::list<std::string> m_channels;
 };

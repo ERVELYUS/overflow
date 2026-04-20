@@ -116,6 +116,8 @@ void Client::handle_server_message(Packet& packet) {
       packet >> type_raw >> count;
 
       auto channels = std::make_shared<ChannelsList>();
+      channels->m_update_type = static_cast<UpdateType>(type_raw);
+
       for (std::uint32_t i = 0; i < count; ++i) {
         std::string name;
         packet >> name;
@@ -132,6 +134,8 @@ void Client::handle_server_message(Packet& packet) {
       packet >> type_raw >> count;
 
       auto users = std::make_shared<UsersList>();
+      users->m_update_type = static_cast<UpdateType>(type_raw);
+
       for (std::uint32_t i = 0; i < count; ++i) {
         std::string name;
         packet >> name;
