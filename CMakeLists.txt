@@ -16,6 +16,26 @@ add_subdirectory(libs/cppcon)
 add_subdirectory(libs/ftxui)
 add_subdirectory(libs/guiHelper)
 add_subdirectory(libs/SQLiteCpp)
+
+set(BCRYPT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/libbcrypt")
+set(BCRYPT_CMAKE "${BCRYPT_DIR}/CMakeLists.txt")
+
+if(EXISTS "${BCRYPT_CMAKE}")
+  message(STATUS "Patching libbcrypt version requirement...")
+  file(READ "${BCRYPT_CMAKE}" BCRYPT_CONTENT)
+
+  string(REGEX REPLACE
+        "cmake_minimum_required\\(VERSION [0-9.]+[^\right)]*\\)"
+        "cmake_minimum_required(VERSION 3.10)"
+        BCRYPT_UPDATED_CONTENT
+        "${BCRYPT_CONTENT}"
+    )
+
+  file(WRITE "${BCRYPT_CMAKE}" "${BCRYPT_UPDATED_CONTENT}")
+else()
+  message(WARNING "libbcrypt CMakeLists.txt not found! Check your submodules.")
+endif()
+
 add_subdirectory(libs/libbcrypt)
 
 set(CPPCON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/cppcon/include")
@@ -107,19 +127,19 @@ target_link_libraries(tui PRIVATE
 
 # Platform-specific Linking
 if (UNIX)
-    find_package(Threads REQUIRED)
+  find_package(Threads REQUIRED)
 
-    set(THREADS_LIBS Threads::Threads)
-    target_link_libraries(server PRIVATE ${THREADS_LIBS})
-    target_link_libraries(cli PRIVATE ${THREADS_LIBS})
-    target_link_libraries(gui PRIVATE ${THREADS_LIBS})
-    target_link_libraries(tui PRIVATE ${THREADS_LIBS})
+  set(THREADS_LIBS Threads::Threads)
+  target_link_libraries(server PRIVATE ${THREADS_LIBS})
+  target_link_libraries(cli PRIVATE ${THREADS_LIBS})
+  target_link_libraries(gui PRIVATE ${THREADS_LIBS})
+  target_link_libraries(tui PRIVATE ${THREADS_LIBS})
 endif ()
 
 if (WIN32)
-    set(WINSOCK_LIB Ws2_32)
-    target_link_libraries(server PRIVATE ${WINSOCK_LIB})
-    target_link_libraries(cli PRIVATE ${WINSOCK_LIB})
-    target_link_libraries(gui PRIVATE ${WINSOCK_LIB})
-    target_link_libraries(tui PRIVATE ${WINSOCK_LIB})
+  set(WINSOCK_LIB Ws2_32)
+  target_link_libraries(server PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(cli PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(gui PRIVATE ${WINSOCK_LIB})
+  target_link_libraries(tui PRIVATE ${WINSOCK_LIB})
 endif ()
