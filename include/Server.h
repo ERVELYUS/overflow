@@ -2,16 +2,17 @@
 
 #include <cppcon/SocketSelector.h>
 #include <cppcon/TcpListener.h>
-#include <cppcon/TcpSocket.h>
 
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 #include "Channel.h"
+#include "Database.h"
 #include "User.h"
 
 class Server {
+  Database m_db;
   std::unordered_map<std::string, Channel> m_channels{};
 
   // We have two maps for users to optimize lookup time
@@ -33,12 +34,16 @@ class Server {
 
   void run();
 
-  void handle_new_connection();
+  void connect_user();
+  void broadcast_users_list();
+  void send_dm_history(User& user);
   void handle_client_message(socket_t user_fd);
 
   void process_command(User& user, const Packet& packet);
 
   void disconnect_user(socket_t socket_fd);
+  void activate_user_session(User& user, int user_id,
+                             const std::string& username);
 
   enum class ChannelCreateReturnValue {
     SUCCESS,

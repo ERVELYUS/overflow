@@ -7,4 +7,4 @@ BraceWrapping:
   AfterClass: false
   AfterNamespace: false
   AfterControlStatement: false
-  BeforeCatch: true 
+  BeforeCatch: true

@@ -1,10 +1,10 @@
 #include "Client.h"
 
-#include <cstdint>
-#include <iostream>
-#include <ostream>
 #include <stdexcept>
+#include <utility>
 
+#include "Console.h"
+#include "Message.h"
 #include "Protocol.h"
 #include "cppcon/AddrInfoResolver.h"
 
@@ -12,33 +12,29 @@ Client::Client() : m_running(false) {}
 
 Client::~Client() {
   m_running = false;
-
   m_socket.close();
-
-  if (m_recieve_thread.joinable()) {
-    m_recieve_thread.join();
+  if (m_receive_thread.joinable()) {
+    m_receive_thread.join();
   }
 }
 
 void Client::connect(const std::string& ip, const std::string& port) {
-  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
+  const auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
   if (tcp_endpoints.empty()) {
     throw std::runtime_error("Could not resolve server address");
   }
 
   m_socket.connect(tcp_endpoints[0]);
+  m_connected = true;
   m_running = true;
 
-  m_recieve_thread = std::thread([this]() {
+  m_receive_thread = std::thread([this] {
     while (m_running) {
-      Packet packet{};
-
-      if (m_socket.recv(packet)) {
-        this->handle_server_message(packet);
+      if (Packet packet{}; m_socket.recv(packet)) {
+        handle_server_message(packet);
       }
       else {
         if (m_running) {
-          std::cout << "\n[System] Disconnected from server.\n";
           m_running = false;
         }
         break;
@@ -50,170 +46,293 @@ void Client::connect(const std::string& ip, const std::string& port) {
 void Client::handle_server_message(Packet& packet) {
   std::uint8_t id_raw{};
   packet >> id_raw;
-  CommandID id = static_cast<CommandID>(id_raw);
+  auto id = static_cast<CommandID>(id_raw);
 
-  if (id == CommandID::MSG) {
-    std::string sender, content;
-    packet >> sender >> content;
-
-    std::cout << "\r[" << sender << "]: " << content << "\n" << std::flush;
-
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::LIST_CHANNELS) {
-    std::cout << "[System] List of all available channels:\n" << std::flush;
-
-    std::uint32_t channels_count{};
-    packet >> channels_count;
-
-    std::string channel_name;
-    for (std::uint32_t i = 0; i < channels_count; ++i) {
-      packet >> channel_name;
-      std::cout << '#' << channel_name << '\n';
+  auto notify_ui = [this](ConsoleLevel level, const std::string& text) {
+    if (m_message_handler) {
+      m_message_handler(std::make_shared<SystemMessage>(level, text));
     }
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::LIST_USERS) {
-    std::cout << "[System] List of all users:\n" << std::flush;
+  };
 
-    std::uint32_t users_count{};
-    packet >> users_count;
+  switch (id) {
+    case CommandID::MSG: {
+      std::string sender, content;
+      packet >> sender >> content;
+      if (m_message_handler) {
+        m_message_handler(std::make_shared<UserMessage>(sender, content));
+      }
+      break;
+    }
+    case CommandID::LOGIN:
+    case CommandID::REGISTER: {
+      bool successful{};
+      std::string message;
+      packet >> successful >> message;
 
-    std::string user_name;
-    for (std::uint32_t i = 0; i < users_count; ++i) {
-      packet >> user_name;
-      std::cout << '@' << user_name << '\n';
+      if (successful) {
+        m_authenticated = true;
+        m_nickname = message;
+
+        if (m_message_handler) {
+          m_message_handler(std::make_shared<SelfNameMessage>(m_nickname));
+        }
+
+        if (id == CommandID::LOGIN) {
+          notify_ui(ConsoleLevel::System,
+                    "Login successful! Welcome, " + m_nickname);
+        }
+        else {
+          notify_ui(ConsoleLevel::System,
+                    "Registration successful! Welcome, " + m_nickname);
+        }
+      }
+      else {
+        notify_ui(ConsoleLevel::Error, message);
+      }
+      break;
     }
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::NICKNAME) {
-    bool successful{};
-    packet >> successful;
-    if (successful) {
-      std::cout << "[System] Name changed successfully.\n" << std::flush;
+    case CommandID::DM_HISTORY: {
+      std::string peer_name;
+      std::uint32_t count{};
+      packet >> peer_name >> count;
+
+      auto history = std::make_shared<DMHistoryMessage>(peer_name);
+
+      for (std::uint32_t i = 0; i < count; ++i) {
+        std::string sender, text;
+        packet >> sender >> text;
+        history->m_lines.push_back(DMHistoryLine{sender, text});
+      }
+
+      if (m_message_handler) {
+        m_message_handler(history);
+      }
+      break;
     }
-    else {
-      std::cout
-          << "[System] Invalid nickname. Use 3-20 alphanumeric characters.\n"
-          << std::flush;
+    case CommandID::NICKNAME:
+    case CommandID::SET_SELF_NAME: {
+      bool successful{};
+      packet >> successful;
+      if (successful) {
+        packet >> m_nickname;
+        if (m_message_handler) {
+          m_message_handler(std::make_shared<SelfNameMessage>(m_nickname));
+        }
+      }
+      else {
+        notify_ui(ConsoleLevel::Error, "Nickname change failed.");
+      }
+      break;
     }
 
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::JOIN) {
-    bool successful{};
-    packet >> successful;
-    if (successful) {
-      std::string channel_name;
-      packet >> channel_name;
-      m_current_channel = channel_name;
-      std::cout << "[System] Connected to channel #" << channel_name << ".\n"
-                << std::flush;
-    }
-    else {
-      std::cout << "Channel does not exist. Use /create to create it.\n"
-                << std::flush;
+    case CommandID::LIST_CHANNELS: {
+      std::uint8_t type_raw{};
+      std::uint32_t count{};
+      packet >> type_raw >> count;
+
+      auto channels = std::make_shared<ChannelsList>();
+      channels->m_update_type = static_cast<UpdateType>(type_raw);
+
+      for (std::uint32_t i = 0; i < count; ++i) {
+        std::string name;
+        packet >> name;
+        *channels << name;
+      }
+
+      if (m_message_handler) m_message_handler(channels);
+      break;
     }
 
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::PRIVATE_MSG) {
-    std::string sender, content;
-    packet >> sender >> content;
-    std::cout << "\r[@" << sender << "]: " << content << "\n> " << std::flush;
-  }
-  else if (id == CommandID::CREATE) {
-    std::string message{};
-    packet >> message;
-    std::cout << message << std::flush;
-    std::cout << "> " << std::flush;
-  }
-  else if (id == CommandID::ERROR) {
-    std::string error_msg;
-    packet >> error_msg;
-    std::cout << "\r[Error] " << error_msg << "\n> " << std::flush;
+    case CommandID::LIST_USERS: {
+      std::uint8_t type_raw{};
+      std::uint32_t count{};
+      packet >> type_raw >> count;
+
+      auto users = std::make_shared<UsersList>();
+      users->m_update_type = static_cast<UpdateType>(type_raw);
+
+      for (std::uint32_t i = 0; i < count; ++i) {
+        std::string name;
+        packet >> name;
+        *users << name;
+      }
+
+      if (m_message_handler) m_message_handler(users);
+      break;
+    }
+    case CommandID::JOIN: {
+      bool successful{};
+      packet >> successful;
+      if (successful) {
+        packet >> m_current_channel;
+
+        if (m_message_handler) {
+          m_message_handler(
+              std::make_shared<JoinedChannelMessage>(m_current_channel));
+        }
+
+        notify_ui(ConsoleLevel::System, "Joined #" + m_current_channel);
+      }
+      else {
+        notify_ui(ConsoleLevel::Error, "Failed to join channel.");
+      }
+      break;
+    }
+    case CommandID::PRIVATE_MSG: {
+      std::string sender, content;
+      packet >> sender >> content;
+      if (m_message_handler) {
+        m_message_handler(std::make_shared<UserMessage>(sender, content));
+      }
+      break;
+    }
+
+    case CommandID::CREATE: {
+      std::string message;
+      packet >> message;
+      notify_ui(ConsoleLevel::System, message);
+      break;
+    }
+
+    case CommandID::ERROR: {
+      std::string error_msg;
+      packet >> error_msg;
+      notify_ui(ConsoleLevel::Error, "Server Error: " + error_msg);
+      break;
+    }
+
+    default:
+      notify_ui(ConsoleLevel::Error,
+                "Received unknown command ID from server.");
+      break;
   }
 }
 
-void Client::run() {
-  std::string line{};
-  std::cout << "> " << std::flush;
+void Client::register_message_callback(
+    std::function<void(std::shared_ptr<Message>)> handler) {
+  m_message_handler = std::move(handler);
+}
 
-  while (m_running && std::getline(std::cin, line)) {
-    if (line.empty()) continue;
+void Client::send_message(const std::string& line) {
+  if (!m_connected) {
+    Console::print(ConsoleLevel::Error, "Not connected to server.");
+    return;
+  }
 
-    Packet p;
+  if (const auto p = build_command_packet(line); p.has_value()) {
+    m_socket.send(p.value());
+  }
+}
 
-    if (line.find("/nick ") == 0) {
-      std::string new_name = line.substr(6);
-      p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
-      m_nickname = new_name;
-    }
-    else if (line.find("/join ") == 0) {
-      if (!m_current_channel.empty()) {
-        std::cout << "[System] You are already connected to channel #"
-                  << m_current_channel
-                  << ". Type /leave before trying to join other channel.\n"
-                  << std::flush;
-        std::cout << "> " << std::flush;
-        continue;
-      }
-      std::string channel_name = line.substr(6);
-      p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
-    }
-    else if (line.find("/channels") == 0) {
-      p << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS);
-    }
-    else if (line.find("/users") == 0) {
-      p << static_cast<std::uint8_t>(CommandID::LIST_USERS);
-    }
-    else if (line.find("/msg ") == 0) {
-      std::string remaining = line.substr(5);
-      size_t space_pos = remaining.find(' ');
+std::optional<Packet> Client::build_command_packet(const std::string& line) {
+  if (line.empty()) {
+    return std::nullopt;
+  }
 
-      if (space_pos != std::string::npos &&
-          space_pos < remaining.length() - 1) {
-        std::string target = remaining.substr(0, space_pos);
-        std::string text = remaining.substr(space_pos + 1);
+  // Enforce authentication
+  if (!is_authenticated()) {
+    const bool is_register = line.rfind("/register ", 0) == 0;
+    const bool is_login = line.rfind("/login ", 0) == 0;
 
-        p << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG) << target
-          << text;
-      }
-      else {
-        std::cout << "[System] Usage: /msg <nickname> <message>\n> "
-                  << std::flush;
-      }
+    if (!is_register && !is_login) {
+      Console::print(ConsoleLevel::Error, "Please /register or /login first.");
+      return std::nullopt;
     }
-    else if (line.find("/leave") == 0) {
-      if (m_current_channel.empty()) {
-        std::cout << "[System] You are not a part of any channel right now.\n"
-                  << std::flush;
-        std::cout << "> " << std::flush;
-        continue;
-      }
-      std::cout << "[System] You are leaving #" << m_current_channel
-                << " channel.\n"
-                << std::flush;
-      p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
-      m_current_channel = "";
-    }
-    else if (line.find("/create ") == 0) {
-      std::string channel_name = line.substr(8);
-      p << static_cast<std::uint8_t>(CommandID::CREATE) << channel_name;
+  }
+
+  Packet p;
+  if (line.find("/nick ") == 0) {
+    std::string new_name = line.substr(6);
+    p << static_cast<std::uint8_t>(CommandID::NICKNAME) << new_name;
+  }
+  else if (line.find("/register ") == 0) {
+    std::string data_line = line.substr(10);
+
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+      std::string username = data_line.substr(0, space_pos);
+      std::string password = data_line.substr(space_pos + 1);
+      p << static_cast<std::uint8_t>(CommandID::REGISTER) << username
+        << password;
     }
     else {
-      if (m_current_channel.empty()) {
-        std::cout << "[System] Join a channel first via /join <server_name>\n"
-                  << std::flush;
-        std::cout << "> " << std::flush;
-        continue;
-      }
-      p << static_cast<std::uint8_t>(CommandID::MSG) << m_current_channel
-        << line;
+      Console::print(ConsoleLevel::System,
+                     "Usage: /register <nickname> <password>.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
+    }
+  }
+  else if (line.find("/login ") == 0) {
+    std::string data_line = line.substr(7);
+
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+      std::string username = data_line.substr(0, space_pos);
+      std::string password = data_line.substr(space_pos + 1);
+      p << static_cast<std::uint8_t>(CommandID::LOGIN) << username << password;
+    }
+    else {
+      Console::print(ConsoleLevel::System,
+                     "Usage: /login <nickname> <password>.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
+    }
+  }
+  else if (line.find("/join ") == 0) {
+    if (!m_current_channel.empty()) {
+      Console::print(ConsoleLevel::System,
+                     "You are already connected to channel #" +
+                         m_current_channel +
+                         ". Type /leave before trying to join other channel.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
+    }
+    std::string channel_name = line.substr(6);
+    p << static_cast<std::uint8_t>(CommandID::JOIN) << channel_name;
+  }
+  else if (line.find("/create ") == 0) {
+    std::string channel_name = line.substr(8);
+    p << static_cast<std::uint8_t>(CommandID::CREATE) << channel_name;
+  }
+  else if (line.find("/channels") == 0) {
+    p << static_cast<std::uint8_t>(CommandID::LIST_CHANNELS);
+  }
+  else if (line.find("/users") == 0) {
+    p << static_cast<std::uint8_t>(CommandID::LIST_USERS);
+  }
+  else if (line.find("/leave") == 0) {
+    if (m_current_channel.empty()) {
+      Console::print(ConsoleLevel::System,
+                     "You are not part of any channel right now.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
     }
 
-    m_socket.send(p);
-
-    std::cout << "> " << std::flush;
+    Console::print(ConsoleLevel::System,
+                   "You are leaving #" + m_current_channel + " channel.");
+    p << static_cast<std::uint8_t>(CommandID::LEAVE) << m_current_channel;
+    m_current_channel = "";
   }
+  else if (line.find("/pm ") == 0) {
+    std::string data_line = line.substr(4);
+
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+      std::string target_name = data_line.substr(0, space_pos);
+      std::string message_text = data_line.substr(space_pos + 1);
+      p << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG) << target_name
+        << message_text;
+    }
+    else {
+      Console::print(ConsoleLevel::System, "Usage: /pm <nickname> <message>.");
+      Console::print(ConsoleLevel::Prompt, "> ");
+      return std::nullopt;
+    }
+  }
+  else if (line[0] != '/') {
+    if (m_current_channel.empty()) return std::nullopt;
+    p << static_cast<std::uint8_t>(CommandID::MSG) << m_current_channel << line;
+  }
+
+  return p;
 }

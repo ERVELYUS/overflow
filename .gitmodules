@@ -1,3 +1,12 @@
 [submodule "libs/cppcon"]
 	path = libs/cppcon
 	url = https://github.com/ERVELYUS/cppcon.git
+[submodule "libs/ftxui"]
+	path = libs/ftxui
+	url = https://github.com/ArthurSonzogni/FTXUI.git
+[submodule "libs/SQLiteCpp"]
+	path = libs/SQLiteCpp
+	url = https://github.com/SRombauts/SQLiteCpp.git
+[submodule "libs/libbcrypt"]
+	path = libs/libbcrypt
+	url = https://github.com/trusch/libbcrypt.git
