@@ -129,7 +129,6 @@ void Server::send_dm_history(User& user) {
   }
 }
 
-// TODO: Cleanup this mess
 void Server::connect_user() {
   TcpSocket user_socket = m_listener.accept();
   socket_t fd = user_socket.get_fd();
@@ -142,11 +141,6 @@ void Server::connect_user() {
   m_polls.add(m_users.at(fd).get_socket(), POLLIN);
 
   std::cout << "[LOG] New anonymous connection on FD " << fd << "\n";
-
-  // Packet identity_packet;
-  //  identity_packet << static_cast<std::uint8_t>(CommandID::SET_SELF_NAME)
-  //<< default_nickname;
-  //  m_users.at(fd).send(identity_packet);
 
   broadcast_users_list();
 }
@@ -169,7 +163,7 @@ void Server::process_command(User& user, const Packet& packet) {
   std::uint8_t command_protocol;
   p >> command_protocol;
 
-  CommandID command = static_cast<CommandID>(command_protocol);
+  auto command = static_cast<CommandID>(command_protocol);
 
   if (!user.is_authenticated() && command != CommandID::REGISTER &&
       command != CommandID::LOGIN) {
@@ -454,8 +448,8 @@ void Server::process_command(User& user, const Packet& packet) {
         for (auto const& [name, chan] : m_channels) {
           update_packet << name;
         }
-        for (auto& [fd, user] : m_users) {
-          user.send(update_packet);
+        for (auto& [fd, user_v] : m_users) {
+          user_v.send(update_packet);
         }
       }
       else {

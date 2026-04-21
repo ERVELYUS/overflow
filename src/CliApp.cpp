@@ -8,24 +8,26 @@
 CliApp::CliApp() { setup_callbacks(); }
 
 void CliApp::setup_callbacks() {
-  m_client.register_message_callback([](std::shared_ptr<Message> msg) {
+  m_client.register_message_callback([](const std::shared_ptr<Message>& msg) {
     auto print_prompt = [] {
       Console::print(ConsoleLevel::Prompt, "> ");
       std::cout.flush();
     };
 
-    if (auto user_msg = std::dynamic_pointer_cast<UserMessage>(msg)) {
+    if (const auto user_msg = std::dynamic_pointer_cast<UserMessage>(msg)) {
       Console::print(ConsoleLevel::Info,
                      "[" + user_msg->m_name + "] " + user_msg->m_msg);
     }
-    else if (auto sys_msg = std::dynamic_pointer_cast<SystemMessage>(msg)) {
+    else if (const auto sys_msg =
+                 std::dynamic_pointer_cast<SystemMessage>(msg)) {
       Console::print(sys_msg->m_level, sys_msg->m_text);
     }
-    else if (auto self_msg = std::dynamic_pointer_cast<SelfNameMessage>(msg)) {
+    else if (const auto self_msg =
+                 std::dynamic_pointer_cast<SelfNameMessage>(msg)) {
       Console::print(ConsoleLevel::System,
                      "Your name is now: " + self_msg->m_name);
     }
-    else if (auto users_msg = std::dynamic_pointer_cast<UsersList>(msg)) {
+    else if (const auto users_msg = std::dynamic_pointer_cast<UsersList>(msg)) {
       if (users_msg->m_update_type == UpdateType::BackgroundPush) {
         return;
       }
@@ -41,7 +43,8 @@ void CliApp::setup_callbacks() {
         }
       }
     }
-    else if (auto channels_msg = std::dynamic_pointer_cast<ChannelsList>(msg)) {
+    else if (const auto channels_msg =
+                 std::dynamic_pointer_cast<ChannelsList>(msg)) {
       if (channels_msg->m_update_type == UpdateType::BackgroundPush) {
         return;
       }

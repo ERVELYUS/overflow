@@ -2,7 +2,6 @@
 
 #include <cppcon/SocketSelector.h>
 #include <cppcon/TcpListener.h>
-#include <cppcon/TcpSocket.h>
 
 #include <string>
 #include <string_view>

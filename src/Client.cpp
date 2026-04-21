@@ -1,7 +1,7 @@
 #include "Client.h"
 
-#include <cstdint>
 #include <stdexcept>
+#include <utility>
 
 #include "Console.h"
 #include "Message.h"
@@ -19,7 +19,7 @@ Client::~Client() {
 }
 
 void Client::connect(const std::string& ip, const std::string& port) {
-  auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
+  const auto tcp_endpoints = AddrInfoResolver::resolve(ip, port);
   if (tcp_endpoints.empty()) {
     throw std::runtime_error("Could not resolve server address");
   }
@@ -28,16 +28,13 @@ void Client::connect(const std::string& ip, const std::string& port) {
   m_connected = true;
   m_running = true;
 
-  m_receive_thread = std::thread([this]() {
+  m_receive_thread = std::thread([this] {
     while (m_running) {
-      Packet packet{};
-
-      if (m_socket.recv(packet)) {
+      if (Packet packet{}; m_socket.recv(packet)) {
         handle_server_message(packet);
       }
       else {
         if (m_running) {
-          // Console::print(ConsoleLevel::System, "Disconnected from server.");
           m_running = false;
         }
         break;
@@ -49,7 +46,7 @@ void Client::connect(const std::string& ip, const std::string& port) {
 void Client::handle_server_message(Packet& packet) {
   std::uint8_t id_raw{};
   packet >> id_raw;
-  CommandID id = static_cast<CommandID>(id_raw);
+  auto id = static_cast<CommandID>(id_raw);
 
   auto notify_ui = [this](ConsoleLevel level, const std::string& text) {
     if (m_message_handler) {
@@ -213,7 +210,7 @@ void Client::handle_server_message(Packet& packet) {
 
 void Client::register_message_callback(
     std::function<void(std::shared_ptr<Message>)> handler) {
-  m_message_handler = handler;
+  m_message_handler = std::move(handler);
 }
 
 void Client::send_message(const std::string& line) {
@@ -222,8 +219,7 @@ void Client::send_message(const std::string& line) {
     return;
   }
 
-  auto p = build_command_packet(line);
-  if (p.has_value()) {
+  if (const auto p = build_command_packet(line); p.has_value()) {
     m_socket.send(p.value());
   }
 }
@@ -251,9 +247,9 @@ std::optional<Packet> Client::build_command_packet(const std::string& line) {
   }
   else if (line.find("/register ") == 0) {
     std::string data_line = line.substr(10);
-    size_t space_pos = data_line.find(' ');
 
-    if (space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
       std::string username = data_line.substr(0, space_pos);
       std::string password = data_line.substr(space_pos + 1);
       p << static_cast<std::uint8_t>(CommandID::REGISTER) << username
@@ -268,9 +264,9 @@ std::optional<Packet> Client::build_command_packet(const std::string& line) {
   }
   else if (line.find("/login ") == 0) {
     std::string data_line = line.substr(7);
-    size_t space_pos = data_line.find(' ');
 
-    if (space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
       std::string username = data_line.substr(0, space_pos);
       std::string password = data_line.substr(space_pos + 1);
       p << static_cast<std::uint8_t>(CommandID::LOGIN) << username << password;
@@ -319,9 +315,9 @@ std::optional<Packet> Client::build_command_packet(const std::string& line) {
   }
   else if (line.find("/pm ") == 0) {
     std::string data_line = line.substr(4);
-    size_t space_pos = data_line.find(' ');
 
-    if (space_pos != std::string::npos && space_pos < data_line.length() - 1) {
+    if (size_t space_pos = data_line.find(' ');
+        space_pos != std::string::npos && space_pos < data_line.length() - 1) {
       std::string target_name = data_line.substr(0, space_pos);
       std::string message_text = data_line.substr(space_pos + 1);
       p << static_cast<std::uint8_t>(CommandID::PRIVATE_MSG) << target_name

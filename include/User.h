@@ -14,17 +14,17 @@ class User {
  public:
   User(TcpSocket socket, std::string_view name);
 
-  void set_id(int id) { m_db_id = id; };
-  int get_id() const { return m_db_id; };
+  void set_id(const int id) { m_db_id = id; }
+  [[nodiscard]] int get_id() const { return m_db_id; }
 
   void set_name(std::string_view new_name);
 
-  std::string_view get_name() const;
+  [[nodiscard]] std::string_view get_name() const;
   TcpSocket& get_socket();
 
   void send(const Packet& packet);
   bool recv(Packet& packet);
 
-  void authenticate() { m_authenticated = true; };
-  bool is_authenticated() const { return m_authenticated; };
+  void authenticate() { m_authenticated = true; }
+  [[nodiscard]] bool is_authenticated() const { return m_authenticated; }
 };

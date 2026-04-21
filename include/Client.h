@@ -31,8 +31,8 @@ class Client {
 
   void register_message_callback(std::function<void(std::shared_ptr<Message>)>);
 
-  bool is_running() const { return m_running; };
-  bool is_authenticated() const { return m_authenticated; };
+  [[nodiscard]] bool is_running() const { return m_running; }
+  [[nodiscard]] bool is_authenticated() const { return m_authenticated; }
 
   void connect(const std::string& ip, const std::string& port);
   void send_message(const std::string& line);

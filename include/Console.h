@@ -9,10 +9,9 @@ enum class ConsoleLevel {
 };
 
 class Console {
- private:
+ public:
   Console() = delete;
 
- public:
   static void set_enabled(bool e);
   static bool enabled();
 

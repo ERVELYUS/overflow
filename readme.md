@@ -1,64 +1,81 @@
-# Overflow 
+# Overflow
 
-**Overflow** is a high-performance, cross-platform chat application built from scratch in C++. It demonstrates low-level networking concepts, non-blocking I/O, and modern C++17 design patterns.
+**Overflow** is a high-performance, cross-platform chat application built from scratch in C++17. Designed to demonstrate
+low-level networking concepts and modern software architecture, Overflow features a decoupled client-server model where
+a single robust networking core powers multiple distinct user interfaces: a Command Line Interface (CLI), a rich Text
+User Interface (TUI), and an upcoming Graphical User Interface (GUI).
 
-The project is architected with a strict separation between the core networking engine (**cppcon**) and the application logic (Server/Client), ensuring modularity and clean code.
+The project is architected with a strict separation between the core networking engine, the server database
+architecture, and the client applications, ensuring highly modular and maintainable code.
 
-## Features Implemented
+## Powered by `cppcon`
 
-### Core Networking (via `cppcon`)
-* **Cross-Platform Architecture:** Seamlessly compiles and runs on **Linux** (GCC/Clang) and **Windows** (MSVC/MinGW).
-* **Custom Socket Wrappers:** RAII-compliant `TcpSocket`, `TcpListener`, and `UdpSocket` classes that handle OS-specific resource management automatically.
-* **I/O Multiplexing:** High-concurrency event loops using `poll()` on Linux and `WSAPoll()` on Windows to handle multiple clients on a single thread.
-* **Platform Abstraction:** Unified types (`socket_t`, `nfds_t`) and error handling (`WSAGetLastError` vs `errno`) hidden behind a clean API.
+At the heart of Overflow sits **[cppcon](https://github.com/ERVELYUS/cppcon)**, a standalone non-blocking networking
+library developed specifically for this project.
 
-### Application Layer
-* **Client-Server Model:** A dedicated Server executable that manages connections and a Client executable for users.
-* **Domain Logic:** `User` and `Channel` classes implemented for state management foundation.
-* **Build System:** Modern CMake configuration with submodules 
+`cppcon` implements the socket layer from the ground up. It handles the "dirty work" of cross-platform I/O
+multiplexing—managing `poll()` on Linux and `WSAPoll()` on
+Windows, abstracting header differences, and unifying error handling—so the main application code remains clean and
+OS-agnostic.
 
-## The Engine
+## Features
 
-This project is powered by **[cppcon](https://github.com/ERVELYUS/cppcon)**, a standalone networking library developed specifically for Overflow. 
+### Multi-Client Architecture
 
-Instead of relying on heavy external frameworks like Boost.Asio, `cppcon` implements the socket layer from the ground up. It handles the "dirty work" of cross-platform compatibility—managing `WSAStartup` on Windows, header differences, and type mismatches—so the main application code remains clean and OS-agnostic.
+* **TUI Client (`tui`):** A highly responsive, split-pane terminal interface. Powered by FTXUI.
+* **CLI Client (`cli`):** A lightweight, standard I/O command-line interface for quick access and debugging.
 
+### Application & Protocol
 
-## Roadmap & To-Do
+* **Channels & Direct Messages:** Join public community channels (`/join`) or engage in private, one-on-one direct
+  messaging (`/pm`).
+* **Secure Authentication:** Built-in user registration and login systems with secure password hashing via bcrypt.
+* **Persistent History:** Server-side chat history, channel states, and user data are securely stored using a relational
+  SQLite database.
+* **Live Updates:** Real-time background pushing of active users, new channels, and incoming messages.
 
-The foundation is solid. The next steps focus on **Protocol Robustness, Logic, and UI**.
+## Technology Stack & Credits
 
-### 1. Server Logic 
-- [X] **User Disconnection:** Handle user disconnecting from the server
-- [X] **User Leavng Channel:** Handle user typing `/leave`
-- [X] **Nickname filters:** Add filters to `/nick <name>` to restrict usernames
-- [X] **Optimize `SocketSelector`:** Change SocketSelector behaviour to return *changed* sockets (`cppcon` issue)
-- [X] **Graceful channel creation:** Give the user ability to create channels via `/create <channel_name>`
-- [X] **64 bit support on Windows:** Figure out a way to add a 64 bit support on Windows
-- [X] **Direct contact:** Add `/msg` as a way to send DMs
+A huge thank you to the creators of the following tools:
 
-### 2. Features
-- [ ] **UI:** Create a UI version via imgui.
-	- [X] imgui library support via **glfw** and **opengl**.
-	- [ ] API interface for working with the engine.
-	- [ ] implementation of a window for the client part.
+* **[FTXUI](https://github.com/ArthurSonzogni/FTXUI)**: Powers the Terminal User Interface.
+* **[SQLiteCpp](https://github.com/SRombauts/SQLiteCpp)**: C++ wrapper around SQLite3 for managing persistent server
+  data.
+* **[libbcrypt](https://github.com/trusch/libbcrypt)**: Handles secure password hashing and validation.
+
+## Roadmap
+
+The core networking and logic foundation is solid. The next steps focus on expanding user capabilities and fleshing out
+the graphical client.
+
+- [x] **Core Protocol & Logic:** User disconnection, `/leave`, nickname filters, DM routing, and channel creation.
+- [x] **Database Integration:** SQLite schema for users, channels, and message persistence.
+- [x] **TUI Implementation:** Fully interactive terminal UI client with workspaces and chat histories.
+- [ ] **GUI Client:** Finalize the ImGui window implementation and API interface.
+- [ ] **TUI Settings:** User-configurable settings menu within the terminal client.
+- [ ] **Rich Media Support:** Rendering images and video directly in the chat buffer.
+- [ ] **Voice/Video Integration:** Investigating custom UDP streams for voice and video messages.
 
 ## Build Instructions
 
 ### Prerequisites
+
 * **CMake** (3.10+)
 * **C++ Compiler** (GCC, Clang, or MSVC) supporting C++17.
 
 ### Cloning
-Since `cppcon` is a submodule, you must clone recursively:
+
+Because Overflow utilizes several submodules, you **must** clone the repository recursively:
 
 ```bash
 git clone --recursive https://github.com/ERVELYUS/overflow.git
 cd overflow
 ```
-*(If you already cloned without recursive, run git submodule update --init --recursive)*
 
-### Building 
+### Building
+
+The CMake configuration will automatically generate targets for the server and all available clients.
+
 ```bash
 mkdir build && cd build
 cmake ..
@@ -67,19 +84,25 @@ cmake --build .
 
 ### Running
 
-Start the server first, then connect with one or more clients:
+Start the server first. The server will automatically initialize the `server.db` SQLite database on its first run.
 
 ```bash
-# Terminal 1
-./overflow_server
+./server <ip> <port>
+```
 
-# Terminal 2
-./overflow_client
+In separate terminal, you can launch any version of the client:
+
+```bash
+# TUI version
+./tui <ip> <port>
+
+# CLI version
+./cli <ip> <port> 
 ```
 
 ## Contributing
-1. Fork the repository.
-2. Create a feature branch (git checkout -b feature-name).
-3. Commit your changes (git commit -m "Add feature").
-4. Push to the branch (git push origin feature-name).
-5. Open a Pull Request.
+
+1. Fork the repo
+2. Create a feture branch (git checkout -b feature-name)
+3. Commit your changes
+4. Push to the branch and open a Pull Request
